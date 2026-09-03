@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Inmobot · banco de pruebas</title>
+<style>
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       background:#eef1f5;color:#1a1d21}
+  .caja{max-width:760px;margin:0 auto;padding:48px 24px 140px}
+  h1{margin:0 0 6px;font-size:26px}
+  p.sub{margin:0 0 28px;color:#5b6068}
+  .tarjeta{background:#fff;border-radius:12px;padding:22px 24px;margin-bottom:18px;
+           box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  h2{font-size:15px;margin:0 0 12px;text-transform:uppercase;letter-spacing:.5px;color:#5b6068}
+  ul{margin:0;padding-left:20px;line-height:1.9}
+  code{background:#f0f2f5;padding:2px 6px;border-radius:4px;font-size:13px}
+  .aviso{background:#fff8e6;border-left:4px solid #e0a800;padding:14px 18px;border-radius:6px;
+         font-size:14px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="caja">
+  <h1>Inmobot</h1>
+  <p class="sub">Banco de pruebas local. El widget de abajo a la derecha es exactamente
+     el que se instala en el sitio de un cliente.</p>
+
+  <div class="tarjeta">
+    <h2>Pruébalo con estas frases</h2>
+    <ul>
+      <li>busco casa en Cumbres, 3 recámaras, hasta 4 millones</li>
+      <li>algo pa' la familia, no muy caro, por el norte</li>
+      <li>quiero rentar un depto de 2 recámaras</li>
+      <li>tienen algo en Polanco?  <em>(no existe: mira cómo lo maneja)</em></li>
+      <li>me interesa la primera, ¿cómo la veo?</li>
+    </ul>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Instalación en el sitio del cliente</h2>
+    <p style="line-height:1.7;margin:0">Una sola línea antes de <code>&lt;/body&gt;</code>:</p>
+    <p style="margin:12px 0 0"><code>&lt;script src="https://TU-SERVIDOR/widget/inmobot.js"
+       data-inquilino="rednorte" data-api="https://TU-SERVIDOR"&gt;&lt;/script&gt;</code></p>
+  </div>
+
+  <div class="aviso">
+    <strong>Inventario ficticio.</strong> Este banco de pruebas usa el inquilino
+    <code>demo</code>, con 14 propiedades inventadas de Monterrey. Nada de lo que
+    muestre aquí es real.
+  </div>
+</div>
+
+<script src="/widget/inmobot.js" data-inquilino="demo" data-api=""></script>
+</body>
+</html>

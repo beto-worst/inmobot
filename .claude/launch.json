@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "inmobot",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "inmobot.servidor"],
+      "port": 8100
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "id": "rednorte",
+  "nombre": "RedNorte",
+  "activo": true,
+  "zona_operacion": "Nuevo Leon, principalmente el area metropolitana de Monterrey: Monterrey, San Pedro Garza Garcia, San Nicolas, Guadalupe, Apodaca, General Escobedo, Santa Catarina y Santiago.",
+  "personalidad": "Profesional y cercano, como un asesor con anos en la zona. Conoces la diferencia entre las colonias del area metropolitana y la usas para orientar, sin presumir.",
+  "reglas": [
+    "Si preguntan por avaluos, valuacion o cuanto vale su propiedad, no des una cifra: dirigelos a la herramienta de estimacion del sitio y ofrece pasarlos con un asesor.",
+    "Si quieren vender o rentar su propiedad, toma sus datos con registrar_lead y marca en notas que es un prospecto de captacion, no de compra."
+  ],
+  "adaptador": {
+    "tipo": "nocnok",
+    "config": {
+      "api_key_env": "NOCNOK_API_KEY",
+      "url_ficha": "https://www.rednorte.mx/propiedad/{codigo}",
+      "tam_pagina": 100,
+      "max_paginas": 10
+    }
+  },
+  "contacto": {
+    "whatsapp": "528117783953",
+    "webhook_leads": "",
+    "token_panel": "CAMBIAR-ESTE-TOKEN"
+  },
+  "marca": {
+    "color": "#c8102e",
+    "titulo": "Asistente RedNorte",
+    "saludo": "Hola, soy el asistente de RedNorte. Digame que busca: zona, cuantas recamaras y su presupuesto aproximado, y le muestro opciones."
+  },
+  "origenes_permitidos": ["https://www.rednorte.mx", "https://rednorte.mx"]
+}
