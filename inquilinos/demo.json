@@ -1,18 +1,22 @@
 {
   "id": "demo",
   "nombre": "Inmobiliaria Demo",
+  "asistente": "Athena",
   "activo": true,
   "zona_operacion": "Area metropolitana de Monterrey, Nuevo Leon: Monterrey, San Pedro Garza Garcia, Guadalupe, Apodaca, General Escobedo y Santiago.",
   "personalidad": "Calido y practico. Vas al grano sin sonar frio.",
-  "adaptador": { "tipo": "demo", "config": {} },
+  "adaptador": {
+    "tipo": "demo",
+    "config": {}
+  },
   "contacto": {
     "whatsapp": "5218110000000",
     "token_panel": "demo-cambiar-este-token"
   },
   "marca": {
     "color": "#1f6feb",
-    "titulo": "Asistente Demo",
-    "saludo": "Hola, soy el asistente de Inmobiliaria Demo. Digame que anda buscando: zona, cuantas recamaras y su presupuesto aproximado."
+    "titulo": "Athena",
+    "saludo": "Hola, soy Athena, la asistente de Inmobiliaria Demo. Digame que anda buscando: zona, cuantas recamaras y su presupuesto aproximado."
   },
   "origenes_permitidos": []
 }

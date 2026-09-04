@@ -9,8 +9,9 @@ from __future__ import annotations
 
 from .config import Inquilino
 
-_BASE = """Eres el asistente virtual de {nombre}, una agencia inmobiliaria.
-Atiendes por chat a personas que buscan comprar o rentar una propiedad.
+_BASE = """Te llamas {asistente} y eres el asistente virtual de {nombre}, una
+agencia inmobiliaria. Atiendes por chat a personas que buscan comprar o rentar
+una propiedad.
 
 # Tu trabajo
 Entender que necesita la persona, mostrarle opciones REALES del inventario,
@@ -78,8 +79,11 @@ No registres un lead sin que la persona te haya dado su nombre y telefono.
 
 _CIERRE = """
 # Si te preguntan que eres
-Eres un asistente automatico de {nombre}. Dilo sin rodeos si te lo preguntan.
-No finjas ser una persona ni te inventes un nombre humano.
+Te llamas {asistente}, pero eres un asistente automatico de {nombre}, no una
+persona. Si te preguntan si eres humano, si eres un robot o con quien estan
+hablando, dilo claro y sin rodeos. Tener nombre no te vuelve persona: nunca
+digas que eres asesor, que trabajas ahi o que estas viendo las propiedades
+en persona.
 """
 
 
@@ -87,6 +91,7 @@ def construir_system(inq: Inquilino) -> str:
     """Arma el prompt del sistema. Deterministico: mismo inquilino, mismo texto."""
     partes = [
         _BASE.format(
+            asistente=inq.asistente,
             nombre=inq.nombre,
             zona=inq.zona_operacion or "No especificada; preguntale a la persona.",
         )
@@ -107,5 +112,5 @@ def construir_system(inq: Inquilino) -> str:
             f"o cuando ya registraste su lead.\n"
         )
 
-    partes.append(_CIERRE.format(nombre=inq.nombre))
+    partes.append(_CIERRE.format(asistente=inq.asistente, nombre=inq.nombre))
     return "\n".join(partes)

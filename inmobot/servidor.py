@@ -87,6 +87,7 @@ async def config(inquilino: str):
     return {
         "id": inq.id,
         "nombre": inq.nombre,
+        "asistente": inq.asistente,
         "marca": inq.marca,
         "whatsapp": (inq.contacto or {}).get("whatsapp", ""),
     }

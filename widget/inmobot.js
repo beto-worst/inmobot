@@ -91,7 +91,10 @@
       if (!cfg) return;
       var marca = cfg.marca || {};
       if (marca.color) host.style.setProperty("--acento", marca.color);
-      titulo.textContent = marca.titulo || cfg.nombre || "Asistente";
+      // El nombre de la IA manda sobre el de la inmobiliaria: para el cliente
+      // final esta hablando con Athena (o como la haya rebautizado), no con
+      // "un asistente" generico.
+      titulo.textContent = marca.titulo || cfg.asistente || cfg.nombre || "Asistente";
       host.dataset.saludo = marca.saludo || "";
     })
     .catch(function () { /* el widget funciona igual con los valores por defecto */ });

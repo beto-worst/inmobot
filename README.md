@@ -1,7 +1,11 @@
-# Inmobot
+# Athena
 
 Asistente inmobiliario por chat, **multi-inquilino**: un solo servidor atiende a
 varias inmobiliarias, cada una con su marca, su inventario y su cobro mensual.
+
+La IA se llama **Athena**, pero cada inmobiliaria puede rebautizarla desde su
+archivo de inquilino (campo `asistente`). Para su cliente final es *su*
+asistente, no un servicio de terceros — y eso ayuda a vender la mensualidad.
 
 El cliente escribe *"busco casa en Cumbres, 3 recámaras, hasta 4 millones"*, el
 asistente busca en el inventario **real**, presenta opciones, resuelve dudas,
@@ -61,7 +65,8 @@ Es copiar un JSON. Cero código.
 | Campo | Para qué sirve |
 |---|---|
 | `id` | Identificador en la URL del widget. No lo cambies después. |
-| `nombre` | Cómo se presenta el asistente. |
+| `nombre` | Nombre de la inmobiliaria. |
+| `asistente` | Cómo se llama la IA. Por defecto `Athena`; el cliente puede poner el nombre que quiera. |
 | `modelo` | `claude-opus-5` (por defecto) o `claude-haiku-4-5` si el cliente quiere pagar menos. |
 | `esfuerzo` | `low` para chat (rápido y barato), `medium` si necesitas más razonamiento. |
 | `zona_operacion` | Dónde opera. Evita que ofrezca propiedades fuera de su mercado. |

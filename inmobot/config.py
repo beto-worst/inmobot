@@ -30,6 +30,11 @@ class Inquilino:
     id: str
     nombre: str
     activo: bool = True
+    # Como se llama la IA. El producto se llama Athena, pero cada inmobiliaria
+    # puede rebautizarla con el nombre que quiera: para su cliente final es
+    # "su" asistente, no un servicio de terceros. Eso vale al momento de
+    # vender la mensualidad.
+    asistente: str = "Athena"
     modelo: str = MODELO_POR_DEFECTO
     esfuerzo: str = ESFUERZO_POR_DEFECTO
     zona_operacion: str = ""
