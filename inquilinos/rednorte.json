@@ -31,5 +31,16 @@
   "origenes_permitidos": [
     "https://www.rednorte.mx",
     "https://rednorte.mx"
-  ]
+  ],
+  "notificaciones": {
+    "email": {
+      "para": [
+        "CAMBIAR-correo-del-asesor@rednorte.mx"
+      ],
+      "host": "smtp.gmail.com",
+      "puerto": 587,
+      "usuario_env": "SMTP_USUARIO",
+      "password_env": "SMTP_PASSWORD"
+    }
+  }
 }

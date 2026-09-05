@@ -42,6 +42,10 @@ class Inquilino:
     personalidad: str = ""
     reglas: list[str] = field(default_factory=list)
     adaptador: dict = field(default_factory=lambda: {"tipo": "demo", "config": {}})
+    # Como se le avisa al asesor cuando entra un prospecto. Ver
+    # notificaciones.py. Las contrasenas van en .env, nunca aqui: este
+    # archivo se sube a git.
+    notificaciones: dict = field(default_factory=dict)
     contacto: dict = field(default_factory=dict)
     marca: dict = field(default_factory=dict)
     origenes_permitidos: list[str] = field(default_factory=list)

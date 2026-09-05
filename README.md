@@ -73,8 +73,8 @@ Es copiar un JSON. Cero código.
 | `personalidad` | Tono específico de esa marca. |
 | `reglas` | Reglas propias del cliente, además de las reglas duras del sistema. |
 | `adaptador` | De dónde salen las propiedades. Ver abajo. |
+| `notificaciones` | Cómo se le avisa al asesor de un prospecto nuevo. Ver abajo. |
 | `contacto.whatsapp` | Número al que se manda al cliente cuando pide un humano. |
-| `contacto.webhook_leads` | URL a la que se copia cada lead (Google Sheets, su CRM). |
 | `contacto.token_panel` | Contraseña para leer `/api/leads`. **Cámbialo por cliente.** |
 | `origenes_permitidos` | Dominios desde los que se puede usar el widget. Vacío = cualquiera. |
 
@@ -160,10 +160,65 @@ inmobot/
 ├── prompt.py        System prompt por inquilino. Determinista (por la caché).
 ├── herramientas.py  Las 4 herramientas que el modelo puede ejecutar
 ├── agente.py        El loop: modelo → herramienta → modelo, con topes
-├── leads.py         Captura a disco + webhook
+├── leads.py         Captura: respaldo → base de datos → aviso al asesor
+├── basedatos.py     SQLite: prospectos consultables, estados, historial
+├── notificaciones.py Aviso al asesor por correo y/o webhook
 ├── config.py        Carga de inquilinos
 └── servidor.py      API HTTP
 ```
+
+---
+
+## Del prospecto al asesor
+
+Cuando al cliente le gusta una opción, Athena le pide nombre y teléfono y
+dispara tres cosas **en este orden**:
+
+1. **Respaldo** en `datos/leads-{inquilino}.jsonl` (texto plano, a prueba de todo)
+2. **Base de datos** SQLite en `datos/athena.db` (consultable, con estados)
+3. **Aviso al asesor** por los canales configurados
+
+Guardar va antes que avisar a propósito: si el correo está mal configurado o
+el webhook del cliente está caído, el prospecto ya quedó en dos lugares. Al
+revés se perdería justo lo que le cobras al cliente.
+
+### Configurar el aviso
+
+En el archivo del inquilino:
+
+```json
+"notificaciones": {
+  "email": {
+    "para": ["asesor@sucliente.mx"],
+    "host": "smtp.gmail.com",
+    "puerto": 587,
+    "usuario_env": "SMTP_USUARIO",
+    "password_env": "SMTP_PASSWORD"
+  },
+  "webhook": "https://script.google.com/macros/s/.../exec"
+}
+```
+
+La contraseña **nunca** va en el JSON — ese archivo se sube a git. Solo el
+nombre de la variable de entorno donde vive, y el valor real en `.env`.
+Con Gmail hace falta una [contraseña de
+aplicación](https://myaccount.google.com/apppasswords), no la normal.
+
+Para desarrollo, `"notificaciones": {"consola": true}` imprime el aviso en
+la terminal en vez de mandarlo.
+
+### Sobre WhatsApp
+
+Mandar un WhatsApp automático exige la API de WhatsApp Business de Meta, con
+verificación de la empresa y semanas de trámite. Mientras tanto, el correo
+llega hoy, y el aviso incluye un enlace `wa.me` para que el asesor le
+escriba al cliente con un clic desde su celular.
+
+### El teléfono se normaliza
+
+`81 1778 3953`, `+52 811 778 3953` y `(81) 1778-3953` son el mismo cliente.
+Sin esto el asesor recibiría al mismo prospecto tres veces como si fueran
+tres personas, y el aviso te dice si ese número ya había escrito antes.
 
 ### Decisiones que no son obvias
 
@@ -200,16 +255,19 @@ el CRM del cliente están caídos, el lead no se pierde.
 | GET | `/salud` | Verificar que está arriba y qué inquilinos cargó |
 | GET | `/api/config?inquilino=X` | Marca del inquilino (lo usa el widget) |
 | POST | `/api/chat` | Un turno de conversación |
-| GET | `/api/leads?inquilino=X&token=Y` | Leads capturados (panel del asesor) |
+| GET | `/api/leads?inquilino=X&token=Y` | Prospectos + resumen. Filtros: `estado`, `tipo`, `busqueda` |
+| POST | `/api/leads/{folio}/estado` | El asesor marca contactado / cerrado / descartado |
+| GET | `/api/leads/{folio}/historial` | Veces que ese teléfono ya había contactado |
 
 ---
 
 ## Pendientes
 
 - [ ] Streaming: hoy la respuesta llega completa; se siente lenta en frases largas
-- [ ] Panel del asesor (interfaz; el endpoint ya existe)
+- [ ] Panel del asesor (interfaz; los endpoints ya existen)
 - [ ] Búsqueda semántica con embeddings en GPU local
 - [ ] Sesiones en Redis (hoy en memoria: se pierden al reiniciar)
+- [ ] WhatsApp Business API para avisarle al asesor por ahí
 - [ ] Adaptador para AVALO
 - [ ] WhatsApp Business API
 - [ ] Límite de mensajes por sesión, contra abuso

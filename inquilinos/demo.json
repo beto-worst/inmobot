@@ -18,5 +18,8 @@
     "titulo": "Athena",
     "saludo": "Hola, soy Athena, la asistente de Inmobiliaria Demo. Digame que anda buscando: zona, cuantas recamaras y su presupuesto aproximado."
   },
-  "origenes_permitidos": []
+  "origenes_permitidos": [],
+  "notificaciones": {
+    "consola": true
+  }
 }

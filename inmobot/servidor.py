@@ -140,16 +140,61 @@ async def chat(p: PeticionChat):
     }
 
 
-@app.get("/api/leads")
-async def ver_leads(inquilino: str, token: str = "", limite: int = 50):
-    """Panel del asesor. Protegido con un token por inquilino."""
+def _autorizar_panel(inquilino: str, token: str):
     inq = registro.obtener(inquilino)
     if not inq:
         raise HTTPException(404, "Inquilino no encontrado")
     esperado = (inq.contacto or {}).get("token_panel", "")
+    # compare_digest evita filtrar el token por el tiempo que tarda comparar.
     if not esperado or not secrets.compare_digest(token, esperado):
         raise HTTPException(401, "Token invalido")
-    return {"inquilino": inquilino, "leads": leads.leer(inquilino, limite)}
+    return inq
+
+
+@app.get("/api/leads")
+async def ver_leads(inquilino: str, token: str = "", limite: int = 50,
+                    estado: str | None = None, tipo: str | None = None,
+                    busqueda: str = ""):
+    """Panel del asesor. Protegido con un token por inquilino."""
+    _autorizar_panel(inquilino, token)
+    return {
+        "inquilino": inquilino,
+        "resumen": leads.base.resumen(inquilino),
+        "leads": leads.leer(inquilino, limite, estado=estado, tipo=tipo,
+                            busqueda=busqueda),
+    }
+
+
+class CambioEstado(BaseModel):
+    inquilino: str
+    token: str
+    estado: str
+    asesor: str = ""
+
+
+@app.post("/api/leads/{folio}/estado")
+async def cambiar_estado(folio: str, c: CambioEstado):
+    """El asesor marca un prospecto como contactado, cerrado o descartado."""
+    _autorizar_panel(c.inquilino, c.token)
+    try:
+        ok = await leads.base.marcar(folio, c.estado, c.asesor)
+    except ValueError as err:
+        raise HTTPException(400, str(err))
+    if not ok:
+        raise HTTPException(404, "Folio no encontrado")
+    return {"folio": folio, "estado": c.estado}
+
+
+@app.get("/api/leads/{folio}/historial")
+async def historial(folio: str, inquilino: str, token: str = ""):
+    """Veces que este telefono ya habia contactado antes."""
+    _autorizar_panel(inquilino, token)
+    encontrados = [l for l in leads.leer(inquilino, 500) if l.get("folio") == folio]
+    if not encontrados:
+        raise HTTPException(404, "Folio no encontrado")
+    telefono = encontrados[0].get("telefono", "")
+    return {"folio": folio,
+            "contactos": leads.base.historial_telefono(inquilino, telefono)}
 
 
 @app.get("/widget/inmobot.js")

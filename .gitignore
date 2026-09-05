@@ -1,5 +1,10 @@
 .env
 __pycache__/
 *.pyc
-datos/*.jsonl
 .venv/
+
+# Datos de clientes reales: nunca al repositorio.
+datos/*.jsonl
+datos/*.db
+datos/*.db-wal
+datos/*.db-shm
