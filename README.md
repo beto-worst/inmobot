@@ -82,11 +82,53 @@ Es copiar un JSON. Cero código.
 
 ## Conectar un inventario nuevo
 
-Si el cliente usa **NOCNOK**, ya está resuelto: `"adaptador": {"tipo": "nocnok"}`
-y su llave de API.
+Athena nunca ve el CRM del cliente: solo conoce `Propiedad`, el formato
+neutral. Por eso la fuente de datos se cambia sin tocar el motor.
 
-Si usa otra cosa, se escribe **un método**. Crea
-`inmobot/adaptadores/loquesea.py`:
+### El cliente usa NOCNOK
+
+Ya está resuelto. `"adaptador": {"tipo": "nocnok"}` y su llave de API.
+
+### El cliente NO tiene CRM (Excel, CSV o Google Sheets)
+
+También resuelto, y es el caso más común en agencias chicas:
+
+```json
+"adaptador": {
+  "tipo": "archivo",
+  "config": { "ruta": "C:/ruta/a/su/inventario.xlsx" }
+}
+```
+
+La `ruta` puede ser un archivo local o una URL. Una hoja de Google publicada
+como CSV (*Archivo → Compartir → Publicar en la web → CSV*) funciona directo,
+y así el cliente actualiza su inventario sin que tú hagas nada.
+
+Reconoce solo los nombres de columna en español —`Recámaras`, `Baños`,
+`Precio de Venta`, `M2 Construcción`, `Cocheras`…— y limpia los valores como
+los escribe una persona: `$3,850,000`, `3.99 MDP`, `3 rec`, `180 m2`. Si la
+hoja usa nombres raros, se mapean sin tocar código:
+
+```json
+"config": {
+  "ruta": "...",
+  "columnas": { "precio": "VALOR DEL INMUEBLE", "recamaras": "HAB" }
+}
+```
+
+**Antes de prometerle nada a un cliente, corre el diagnóstico** sobre su
+archivo: dice qué columnas se reconocieron, cuáles se ignoraron, y cuántas
+propiedades quedan sin zona, sin recámaras o sin fotos.
+
+```python
+import asyncio
+from inmobot.adaptadores.archivo import AdaptadorArchivo
+print(asyncio.run(AdaptadorArchivo({"ruta": "inventario.xlsx"}).diagnostico()))
+```
+
+### El cliente usa otro CRM
+
+Se escribe **un método**. Crea `inmobot/adaptadores/loquesea.py`:
 
 ```python
 from ..modelos import Propiedad
@@ -113,6 +155,7 @@ inmobot/
 ├── adaptadores/
 │   ├── base.py      Filtrado, caché y relajación de criterios (para todos)
 │   ├── demo.py      Inventario ficticio para vender el producto
+│   ├── archivo.py   Excel, CSV o Google Sheets: agencias sin CRM
 │   └── nocnok.py    RedNorte y cualquier cliente con NOCNOK
 ├── prompt.py        System prompt por inquilino. Determinista (por la caché).
 ├── herramientas.py  Las 4 herramientas que el modelo puede ejecutar

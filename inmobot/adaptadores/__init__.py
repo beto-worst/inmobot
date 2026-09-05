@@ -3,6 +3,7 @@
 Para dar de alta una inmobiliaria con una fuente de datos nueva: escribe la
 clase, importala aqui y agregala al diccionario. Nada mas del sistema cambia.
 """
+from .archivo import AdaptadorArchivo
 from .base import AdaptadorInventario
 from .demo import AdaptadorDemo
 from .nocnok import AdaptadorNocnok
@@ -10,6 +11,7 @@ from .nocnok import AdaptadorNocnok
 ADAPTADORES = {
     "demo": AdaptadorDemo,
     "nocnok": AdaptadorNocnok,
+    "archivo": AdaptadorArchivo,
 }
 
 
