@@ -35,22 +35,49 @@ def bloque_tool(id_, nombre, entrada):
     return SimpleNamespace(type="tool_use", id=id_, name=nombre, input=entrada)
 
 
+class StreamFalso:
+    """Imita el gestor de contexto que devuelve messages.stream()."""
+
+    def __init__(self, mensaje):
+        self.mensaje = mensaje
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        return False
+
+    @property
+    def text_stream(self):
+        async def generar():
+            for bloque in self.mensaje.content:
+                if bloque.type == "text":
+                    # En trozos, como llega de verdad: asi la prueba detecta
+                    # si el agente asume que el texto viene de una sola pieza.
+                    for i in range(0, len(bloque.text), 11):
+                        yield bloque.text[i:i + 11]
+        return generar()
+
+    async def get_final_message(self):
+        return self.mensaje
+
+
 class ClienteFalso:
     """Devuelve las respuestas que le pases, en orden."""
 
     def __init__(self, guion):
         self.guion = list(guion)
         self.peticiones = []
-        self.messages = SimpleNamespace(create=self._create)
+        self.messages = SimpleNamespace(stream=self._stream)
 
-    async def _create(self, **kwargs):
+    def _stream(self, **kwargs):
         # Copia de la lista: el agente sigue agregando mensajes a la misma
         # lista despues de esta llamada, y sin la copia la prueba veria el
         # estado final en vez de lo que se mando en este momento.
         instantanea = dict(kwargs)
         instantanea["messages"] = list(kwargs.get("messages", []))
         self.peticiones.append(instantanea)
-        return self.guion.pop(0)
+        return StreamFalso(self.guion.pop(0))
 
 
 async def main():

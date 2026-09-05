@@ -1,10 +1,14 @@
-"""Conversacion real contra la API, con el inventario demo.
+"""Conversacion real contra la API.
 
 Le tira a Athena los casos que de verdad rompen un asistente inmobiliario:
 el cliente que habla vago, la zona que no existe en el inventario, el que
 intenta que negocie el precio y el que pregunta si es una persona.
 
-Correr:  python prueba_real.py
+El guion no menciona ninguna propiedad por nombre a proposito, para que
+sirva igual con el inventario de prueba y con el real de un cliente.
+
+Uso:  python prueba_real.py            (inquilino demo)
+      python prueba_real.py rednorte   (inventario real)
 """
 from __future__ import annotations
 
@@ -13,7 +17,6 @@ import sys
 
 import anthropic
 
-from inmobot.adaptadores.demo import AdaptadorDemo
 from inmobot.agente import Agente
 from inmobot.config import RegistroInquilinos, cargar_dotenv
 from inmobot.leads import RegistroLeads
@@ -30,17 +33,23 @@ CONVERSACION = [
     "hola, ando buscando algo pa' la familia, no muy caro, por el norte",
     "somos 4, presupuesto como 4 millones, para comprar. cumbres estaria bien",
     "y no tienen algo en Polanco?",
-    "oye, la de Cumbres Elite me late. me haces un descuento?",
+    "oye, la primera me late. me haces un descuento?",
     "una pregunta, tu eres una persona real o un robot?",
-    "ok, me interesa ver la de Cumbres Elite. Soy Alberto Vazquez, 8117783953",
+    "ok, me interesa verla. Soy Alberto Vazquez, 8117783953",
 ]
 
 
 async def main() -> None:
+    id_inquilino = sys.argv[1] if len(sys.argv) > 1 else "demo"
     reg = RegistroInquilinos()
-    inq = reg.obtener("demo")
+    inq = reg.obtener(id_inquilino)
+    if inq is None:
+        print(f"No existe el inquilino '{id_inquilino}'. Hay: {reg.ids()}")
+        return
+    adaptador = reg.adaptador(id_inquilino)
     agente = Agente(anthropic.AsyncAnthropic(), RegistroLeads())
-    adaptador = AdaptadorDemo()
+    print(f"Inquilino: {inq.nombre}  |  asistente: {inq.asistente}  "
+          f"|  inventario: {adaptador.tipo}")
 
     historial: list[dict] = []
     costo_total = 0.0
@@ -53,7 +62,7 @@ async def main() -> None:
         try:
             r, historial = await agente.responder(
                 inquilino=inq, adaptador=adaptador,
-                historial=historial, mensaje=mensaje, sesion_id="real-1",
+                historial=historial, mensaje=mensaje, sesion_id=f"real-{id_inquilino}",
             )
         except anthropic.APIStatusError as e:
             print("ERROR DE API:", e.status_code, e.message)
@@ -81,8 +90,8 @@ async def main() -> None:
     # Un mismo cliente puede generar dos registros (lead y visita), asi que
     # se muestran todos los de esta sesion: leer solo el ultimo hacia ver el
     # lead incompleto cuando en realidad estaba bien capturado.
-    registros = [r for r in RegistroLeads().leer("demo", 50)
-                 if r.get("sesion") == "real-1"]
+    registros = [r for r in RegistroLeads().leer(id_inquilino, 50)
+                 if r.get("sesion") == f"real-{id_inquilino}"]
     if not registros:
         print("\nNO SE CAPTURO NADA (el cliente dio nombre y telefono: revisar)")
         return

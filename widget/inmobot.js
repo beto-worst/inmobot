@@ -12,8 +12,15 @@
 (function () {
   "use strict";
 
-  var script = document.currentScript;
-  if (!script) return;
+  // currentScript viene nulo cuando el script se inyecta desde un gestor de
+  // etiquetas (Google Tag Manager) o desde un callback. Sin el respaldo, el
+  // widget simplemente no aparece en esos sitios y nadie sabe por que.
+  var script = document.currentScript ||
+               document.querySelector("script[data-inquilino]");
+  if (!script) {
+    console.error("[inmobot] no encuentro la etiqueta script con data-inquilino");
+    return;
+  }
 
   var INQUILINO = script.getAttribute("data-inquilino") || "demo";
   var API = (script.getAttribute("data-api") || "").replace(/\/$/, "") ||
@@ -153,7 +160,41 @@
     return d;
   }
 
-  function enviar() {
+  // Aplica un evento del stream a la pantalla. `vista` guarda la burbuja que
+  // se va llenando y el indicador de "escribiendo".
+  function aplicarEvento(d, vista) {
+    if (d.tipo === "sesion") {
+      sesion = d.sesion || sesion;
+      return;
+    }
+    if (d.tipo === "texto") {
+      if (vista.espera) { vista.espera.remove(); vista.espera = null; }
+      if (!vista.burbuja) vista.burbuja = burbujaTexto("", "bot");
+      vista.burbuja.textContent += d.texto;
+      hilo.scrollTop = hilo.scrollHeight;
+      return;
+    }
+    if (d.tipo === "herramienta") {
+      // Buscar en el inventario tarda; sin esta senal el chat se queda mudo
+      // justo despues de decir "déjame revisar" y parece que se trabó.
+      if (!vista.espera) vista.espera = escribiendo();
+      return;
+    }
+    if (d.tipo === "propiedades") {
+      pintarPropiedades(d.propiedades);
+      // Lo que Athena diga despues va en una burbuja nueva, debajo de las
+      // tarjetas: si no, el texto se sigue escribiendo arriba de ellas.
+      vista.burbuja = null;
+      return;
+    }
+    if (d.tipo === "error") {
+      if (vista.espera) { vista.espera.remove(); vista.espera = null; }
+      console.error("[inmobot]", d.detalle || d.mensaje);
+      burbujaTexto(d.mensaje || "Hubo un problema.", "error");
+    }
+  }
+
+  async function enviar() {
     var texto = campo.value.trim();
     if (!texto || ocupado) return;
     campo.value = "";
@@ -161,39 +202,58 @@
 
     ocupado = true;
     boton.disabled = true;
-    var espera = escribiendo();
+    var vista = { burbuja: null, espera: escribiendo() };
 
-    fetch(API + "/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ inquilino: INQUILINO, mensaje: texto, sesion: sesion })
-    })
-      .then(function (r) {
-        if (r.ok) return r.json();
+    try {
+      var r = await fetch(API + "/api/chat/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inquilino: INQUILINO, mensaje: texto, sesion: sesion })
+      });
+
+      if (!r.ok) {
         // El cliente final ve un mensaje amable, pero quien instala el widget
         // necesita el motivo real: sin esto, "no pude conectarme" no dice si
         // falta la llave de API, si el inquilino no existe o si es la red.
-        return r.json().catch(function () { return {}; }).then(function (d) {
-          throw new Error("Inmobot " + r.status + ": " + (d.detail || "sin detalle"));
-        });
-      })
-      .then(function (d) {
-        espera.remove();
-        sesion = d.sesion || sesion;
-        if (d.respuesta) burbujaTexto(d.respuesta, "bot");
-        pintarPropiedades(d.propiedades);
-      })
-      .catch(function (err) {
-        espera.remove();
-        console.error("[inmobot]", err && err.message ? err.message : err);
-        burbujaTexto(
-          "No pude conectarme. Intenta de nuevo en un momento.", "error");
-      })
-      .finally(function () {
-        ocupado = false;
-        boton.disabled = false;
-        campo.focus();
-      });
+        var d = await r.json().catch(function () { return {}; });
+        throw new Error("Inmobot " + r.status + ": " + (d.detail || "sin detalle"));
+      }
+
+      var lector = r.body.getReader();
+      var decodificador = new TextDecoder();
+      var pendiente = "";
+
+      while (true) {
+        var paso = await lector.read();
+        if (paso.done) break;
+        pendiente += decodificador.decode(paso.value, { stream: true });
+
+        // Los eventos SSE se separan con linea en blanco. Un evento puede
+        // llegar partido en dos lecturas, asi que lo incompleto se queda en
+        // `pendiente` hasta que llegue el resto.
+        var bloques = pendiente.split("\n\n");
+        pendiente = bloques.pop();
+
+        for (var i = 0; i < bloques.length; i++) {
+          var linea = bloques[i].trim();
+          if (linea.indexOf("data:") !== 0) continue;
+          try {
+            aplicarEvento(JSON.parse(linea.slice(5).trim()), vista);
+          } catch (e) {
+            console.warn("[inmobot] evento ilegible", e);
+          }
+        }
+      }
+    } catch (err) {
+      if (vista.espera) vista.espera.remove();
+      console.error("[inmobot]", err && err.message ? err.message : err);
+      burbujaTexto("No pude conectarme. Intenta de nuevo en un momento.", "error");
+    } finally {
+      if (vista.espera) vista.espera.remove();
+      ocupado = false;
+      boton.disabled = false;
+      campo.focus();
+    }
   }
 
   function alternar() {

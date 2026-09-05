@@ -7,6 +7,7 @@ cliente para el resumen que recibe el asesor.
 """
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 
 import anthropic
@@ -66,6 +67,19 @@ class Respuesta:
     aviso: str = ""
 
 
+@dataclass
+class ResultadoStream:
+    """Buzon para lo que no cabe en los eventos del stream.
+
+    Los eventos que salen al navegador son JSON; el historial lleva bloques
+    del SDK que no se serializan. Quien consume el stream lee esto al final
+    para guardar la conversacion.
+    """
+
+    respuesta: Respuesta | None = None
+    historial: list[dict] = field(default_factory=list)
+
+
 class Agente:
     def __init__(self, cliente: anthropic.AsyncAnthropic, registro_leads):
         self.cliente = cliente
@@ -74,14 +88,41 @@ class Agente:
     async def responder(self, *, inquilino: Inquilino, adaptador,
                         historial: list[dict], mensaje: str,
                         sesion_id: str) -> tuple[Respuesta, list[dict]]:
-        """Procesa un mensaje. Devuelve la respuesta y el historial actualizado."""
-        mensajes = list(historial) + [{"role": "user", "content": mensaje}]
+        """Procesa un mensaje y devuelve la respuesta completa.
 
+        Consume el mismo generador que usa el streaming. Hay una sola
+        implementacion del loop a proposito: dos copias se desincronizan y
+        un arreglo hecho en una no llega a la otra.
+        """
+        buzon = ResultadoStream()
+        async for _ in self.responder_stream(
+            inquilino=inquilino, adaptador=adaptador, historial=historial,
+            mensaje=mensaje, sesion_id=sesion_id, buzon=buzon,
+        ):
+            pass
+        return buzon.respuesta, buzon.historial
+
+    async def responder_stream(self, *, inquilino: Inquilino, adaptador,
+                               historial: list[dict], mensaje: str,
+                               sesion_id: str, buzon: ResultadoStream):
+        """Procesa un mensaje emitiendo eventos conforme suceden.
+
+        Eventos, todos serializables a JSON:
+          {"tipo": "texto",        "texto": "..."}      trozo de respuesta
+          {"tipo": "herramienta",  "nombre": "..."}     empezo a buscar
+          {"tipo": "propiedades",  "propiedades": [..]} resultados del CRM
+          {"tipo": "fin",          ...}                 totales y costo
+
+        El historial actualizado no va en los eventos porque lleva bloques
+        del SDK que no se serializan: se deja en `buzon`.
+        """
+        mensajes = list(historial) + [{"role": "user", "content": mensaje}]
         salida = Respuesta(texto="")
         vistas: dict[str, dict] = {}
+        partes: list[str] = []
 
         for _ in range(MAX_VUELTAS):
-            r = await self.cliente.messages.create(
+            async with self.cliente.messages.stream(
                 model=inquilino.modelo,
                 max_tokens=MAX_TOKENS,
                 # El pensamiento se queda ENCENDIDO. Apagado, el modelo a veces
@@ -100,14 +141,25 @@ class Agente:
                 }],
                 tools=HERRAMIENTAS,
                 messages=mensajes,
-            )
+            ) as flujo:
+                # text_stream entrega solo el texto visible; los bloques de
+                # pensamiento no salen por aqui y nunca llegan al cliente.
+                async for trozo in flujo.text_stream:
+                    partes.append(trozo)
+                    yield {"tipo": "texto", "texto": trozo}
+                r = await flujo.get_final_message()
+
             salida.uso.sumar(r.usage)
 
             if r.stop_reason == "refusal":
                 salida.aviso = "respuesta_rechazada"
-                salida.texto = ("Prefiero no responder eso. Si quieres, te paso "
-                                "con un asesor humano para que te ayude.")
-                return self._cerrar(salida, inquilino, mensajes, vistas)
+                texto = ("Prefiero no responder eso. Si quieres, te paso "
+                         "con un asesor humano para que te ayude.")
+                partes.append(texto)
+                yield {"tipo": "texto", "texto": texto}
+                yield self._cerrar(salida, inquilino, mensajes, vistas,
+                                   partes, buzon)
+                return
 
             # Se guarda el contenido tal cual, con bloques de pensamiento
             # incluidos: reenviarlos alterados invalida el turno.
@@ -118,22 +170,26 @@ class Agente:
 
             usos = [b for b in r.content if b.type == "tool_use"]
             if not usos:
-                salida.texto = "\n".join(
-                    b.text for b in r.content if b.type == "text"
-                ).strip()
                 if r.stop_reason == "max_tokens":
                     salida.aviso = "respuesta_truncada"
-                return self._cerrar(salida, inquilino, mensajes, vistas)
+                yield self._cerrar(salida, inquilino, mensajes, vistas,
+                                   partes, buzon)
+                return
 
             resultados = []
             for u in usos:
                 salida.herramientas_usadas.append(u.name)
+                yield {"tipo": "herramienta", "nombre": u.name}
+
                 contenido, es_error = await ejecutar(
                     u.name, u.input,
                     adaptador=adaptador, inquilino=inquilino,
                     sesion_id=sesion_id, registro_leads=self.registro_leads,
                 )
-                self._recolectar(u.name, contenido, vistas)
+                nuevas = self._recolectar(u.name, contenido, vistas)
+                if nuevas:
+                    yield {"tipo": "propiedades", "propiedades": nuevas}
+
                 bloque = {"type": "tool_result", "tool_use_id": u.id,
                           "content": contenido}
                 if es_error:
@@ -144,30 +200,61 @@ class Agente:
             # modelo a dejar de pedir herramientas en paralelo.
             mensajes.append({"role": "user", "content": resultados})
 
-        salida.aviso = "limite_de_vueltas"
-        salida.texto = salida.texto or (
-            "Se me complico procesar eso. Te paso con un asesor para que te "
-            "atienda directamente."
-        )
-        return self._cerrar(salida, inquilino, mensajes, vistas)
+            # Separador entre lo que dijo antes de buscar y lo que dice
+            # despues. Sin esto quedan pegados: "Dejeme buscar en
+            # Cumbres.Encontre una que cuadra". No se emite al stream porque
+            # ahi cada tramo ya va en su propia burbuja.
+            if partes and not partes[-1].endswith(("\n", " ")):
+                partes.append("\n\n")
 
-    def _recolectar(self, nombre: str, contenido: str, vistas: dict) -> None:
-        """Guarda las propiedades que el modelo consulto, para pintarlas en el chat."""
-        import json
+        salida.aviso = "limite_de_vueltas"
+        if not partes:
+            texto = ("Se me complico procesar eso. Te paso con un asesor para "
+                     "que te atienda directamente.")
+            partes.append(texto)
+            yield {"tipo": "texto", "texto": texto}
+        yield self._cerrar(salida, inquilino, mensajes, vistas, partes, buzon)
+
+    def _recolectar(self, nombre: str, contenido: str, vistas: dict) -> list[dict]:
+        """Guarda las propiedades consultadas y devuelve las que son nuevas.
+
+        Solo las nuevas se mandan al chat: si el cliente pide la ficha de una
+        que ya se le enseno, no tiene por que aparecerle la tarjeta otra vez.
+        """
         if nombre not in ("buscar_propiedades", "ver_propiedad"):
-            return
+            return []
         try:
             datos = json.loads(contenido)
         except (json.JSONDecodeError, TypeError):
-            return
+            return []
+
         encontradas = datos.get("resultados") or []
         if datos.get("propiedad"):
             encontradas = [datos["propiedad"]]
-        for p in encontradas:
-            if isinstance(p, dict) and p.get("id"):
-                vistas[p["id"]] = p
 
-    def _cerrar(self, salida, inquilino, mensajes, vistas):
+        nuevas = []
+        for p in encontradas:
+            if isinstance(p, dict) and p.get("id") and p["id"] not in vistas:
+                vistas[p["id"]] = p
+                nuevas.append(p)
+        return nuevas
+
+    def _cerrar(self, salida, inquilino, mensajes, vistas, partes, buzon) -> dict:
+        salida.texto = "".join(partes).strip()
         salida.propiedades = list(vistas.values())
         salida.costo_usd = salida.uso.costo_usd(inquilino.modelo)
-        return salida, mensajes
+
+        buzon.respuesta = salida
+        buzon.historial = mensajes
+
+        return {
+            "tipo": "fin",
+            "aviso": salida.aviso,
+            "herramientas": salida.herramientas_usadas,
+            "costo_usd": round(salida.costo_usd, 5),
+            "tokens": {
+                "entrada": salida.uso.entrada,
+                "salida": salida.uso.salida,
+                "cache_leido": salida.uso.cache_leido,
+            },
+        }

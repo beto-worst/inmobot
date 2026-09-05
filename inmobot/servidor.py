@@ -5,18 +5,19 @@ Un solo proceso atiende a todos los inquilinos. Cada peticion trae su
 """
 from __future__ import annotations
 
+import json
 import os
 import secrets
 import time
 from pathlib import Path
 
 import anthropic
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from .agente import Agente
+from .agente import Agente, ResultadoStream
 from .config import RAIZ, RegistroInquilinos, cargar_dotenv
 from .leads import RegistroLeads
 
@@ -138,6 +139,72 @@ async def chat(p: PeticionChat):
             "cache_leido": respuesta.uso.cache_leido,
         },
     }
+
+
+@app.post("/api/chat/stream")
+async def chat_stream(p: PeticionChat):
+    """Igual que /api/chat pero la respuesta sale conforme se escribe.
+
+    Sin esto el cliente mira una animacion de puntitos varios segundos y
+    cree que se trabo. Con esto ve texto desde el primer momento, que es la
+    diferencia entre sentirse rapido y sentirse roto.
+    """
+    inq = registro.obtener(p.inquilino)
+    if not inq:
+        raise HTTPException(404, "Inquilino no encontrado")
+    adaptador = registro.adaptador(p.inquilino)
+
+    sesion_id = p.sesion or secrets.token_urlsafe(12)
+    _limpiar_sesiones()
+    estado = _sesiones.get(sesion_id) or {"historial": [], "inquilino": p.inquilino}
+    if estado["inquilino"] != p.inquilino:
+        raise HTTPException(400, "La sesion no corresponde a este inquilino")
+
+    agente = obtener_agente()  # revienta aqui, no a media respuesta
+
+    async def eventos():
+        def sse(dato: dict) -> str:
+            return f"data: {json.dumps(dato, ensure_ascii=False, default=str)}\n\n"
+
+        yield sse({"tipo": "sesion", "sesion": sesion_id})
+        buzon = ResultadoStream()
+        try:
+            async for evento in agente.responder_stream(
+                inquilino=inq, adaptador=adaptador,
+                historial=estado["historial"], mensaje=p.mensaje,
+                sesion_id=sesion_id, buzon=buzon,
+            ):
+                yield sse(evento)
+        except anthropic.RateLimitError:
+            yield sse({"tipo": "error",
+                       "mensaje": "Hay mucha demanda ahorita, intenta en un momento."})
+            return
+        except Exception as err:  # noqa: BLE001 - el chat no se puede caer
+            yield sse({"tipo": "error", "mensaje": "Hubo un problema tecnico.",
+                       "detalle": str(err)})
+            return
+
+        # Solo se guarda si el turno llego completo: un historial cortado a
+        # la mitad de una llamada a herramienta hace que la API rechace la
+        # conversacion entera en el siguiente mensaje.
+        if buzon.respuesta is not None:
+            _sesiones[sesion_id] = {
+                "inquilino": p.inquilino,
+                "historial": _recortar(buzon.historial),
+                "visto": time.time(),
+            }
+
+    return StreamingResponse(
+        eventos(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            # Sin esto, nginx acumula la respuesta y la entrega de golpe:
+            # el streaming deja de servir justo en produccion.
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 def _autorizar_panel(inquilino: str, token: str):

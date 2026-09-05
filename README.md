@@ -37,6 +37,10 @@ Abre <http://localhost:8100>. El widget de abajo a la derecha usa el inquilino
 `demo`, con 14 propiedades inventadas de Monterrey — sirve para probar sin
 tocar ningún CRM.
 
+Para probarlo con el inventario de un cliente real:
+<http://localhost:8100/?inquilino=rednorte>. Sirve para enseñarle a un
+prospecto su propio catálogo en la junta.
+
 Para probar la lógica **sin gastar API**:
 
 ```bash
@@ -246,6 +250,16 @@ recibe basura en el primer mensaje.
 **Los leads se guardan en disco antes que en el webhook.** Si Google Sheets o
 el CRM del cliente están caídos, el lead no se pierde.
 
+**Hay una sola implementación del loop.** `responder()` consume el mismo
+generador que el streaming. Dos copias se desincronizan, y un arreglo hecho en
+una no llega a la otra.
+
+**El streaming es lo que separa "rápido" de "roto".** Sin él, el cliente mira
+puntitos entre 5 y 9 segundos y cree que se trabó. Con él ve texto desde el
+primer momento. El endpoint manda `X-Accel-Buffering: no` porque si no, nginx
+acumula la respuesta y la entrega de golpe: el streaming deja de servir justo
+al desplegarlo en producción.
+
 ---
 
 ## Endpoints
@@ -254,7 +268,8 @@ el CRM del cliente están caídos, el lead no se pierde.
 |---|---|---|
 | GET | `/salud` | Verificar que está arriba y qué inquilinos cargó |
 | GET | `/api/config?inquilino=X` | Marca del inquilino (lo usa el widget) |
-| POST | `/api/chat` | Un turno de conversación |
+| POST | `/api/chat` | Un turno de conversación (respuesta completa) |
+| POST | `/api/chat/stream` | Lo mismo, pero por SSE conforme se escribe. **Es el que usa el widget.** |
 | GET | `/api/leads?inquilino=X&token=Y` | Prospectos + resumen. Filtros: `estado`, `tipo`, `busqueda` |
 | POST | `/api/leads/{folio}/estado` | El asesor marca contactado / cerrado / descartado |
 | GET | `/api/leads/{folio}/historial` | Veces que ese teléfono ya había contactado |
@@ -263,7 +278,6 @@ el CRM del cliente están caídos, el lead no se pierde.
 
 ## Pendientes
 
-- [ ] Streaming: hoy la respuesta llega completa; se siente lenta en frases largas
 - [ ] Panel del asesor (interfaz; los endpoints ya existen)
 - [ ] Búsqueda semántica con embeddings en GPU local
 - [ ] Sesiones en Redis (hoy en memoria: se pierden al reiniciar)

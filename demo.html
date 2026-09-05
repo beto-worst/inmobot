@@ -50,6 +50,23 @@
   </div>
 </div>
 
-<script src="/widget/inmobot.js" data-inquilino="demo" data-api=""></script>
+<script>
+  // ?inquilino=rednorte prueba el mismo widget contra el inventario real.
+  // Sirve para enseñarle a un prospecto su propio catálogo en la junta.
+  (function () {
+    var inq = new URLSearchParams(location.search).get("inquilino") || "demo";
+    var s = document.createElement("script");
+    s.src = "/widget/inmobot.js";
+    s.async = false;
+    s.setAttribute("data-inquilino", inq);
+    s.setAttribute("data-api", "");
+    document.body.appendChild(s);
+    var aviso = document.querySelector(".aviso");
+    if (inq !== "demo" && aviso) {
+      aviso.innerHTML = "<strong>Inventario real.</strong> Este banco de pruebas " +
+        "está usando el inquilino <code>" + inq + "</code> con propiedades de verdad.";
+    }
+  })();
+</script>
 </body>
 </html>
