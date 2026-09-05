@@ -21,7 +21,7 @@
   },
   "contacto": {
     "whatsapp": "528117783953",
-    "token_panel": "CAMBIAR-ESTE-TOKEN"
+    "token_panel_env": "PANEL_REDNORTE"
   },
   "marca": {
     "color": "#c8102e",
@@ -35,12 +35,13 @@
   "notificaciones": {
     "email": {
       "para": [
-        "CAMBIAR-correo-del-asesor@rednorte.mx"
+        "rednorte31@gmail.com"
       ],
       "host": "smtp.gmail.com",
       "puerto": 587,
       "usuario_env": "SMTP_USUARIO",
-      "password_env": "SMTP_PASSWORD"
+      "password_env": "SMTP_PASSWORD",
+      "de": "Athena de RedNorte <rednorte31@gmail.com>"
     }
   }
 }

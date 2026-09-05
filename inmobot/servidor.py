@@ -211,9 +211,23 @@ def _autorizar_panel(inquilino: str, token: str):
     inq = registro.obtener(inquilino)
     if not inq:
         raise HTTPException(404, "Inquilino no encontrado")
-    esperado = (inq.contacto or {}).get("token_panel", "")
+
+    contacto = inq.contacto or {}
+    # La clave preferentemente vive en .env, no en el JSON del inquilino:
+    # ese archivo se sube a git y ahi una clave queda para siempre en el
+    # historial, aunque despues se borre. `token_panel` se sigue aceptando
+    # para pruebas locales.
+    variable = contacto.get("token_panel_env")
+    esperado = os.environ.get(variable, "") if variable else contacto.get("token_panel", "")
+
+    if not esperado:
+        raise HTTPException(
+            503,
+            f"El panel de '{inquilino}' no tiene clave configurada"
+            + (f": falta {variable} en .env" if variable else "."),
+        )
     # compare_digest evita filtrar el token por el tiempo que tarda comparar.
-    if not esperado or not secrets.compare_digest(token, esperado):
+    if not secrets.compare_digest(token, esperado):
         raise HTTPException(401, "Token invalido")
     return inq
 
@@ -262,6 +276,12 @@ async def historial(folio: str, inquilino: str, token: str = ""):
     telefono = encontrados[0].get("telefono", "")
     return {"folio": folio,
             "contactos": leads.base.historial_telefono(inquilino, telefono)}
+
+
+@app.get("/panel")
+async def panel():
+    """Panel del asesor. La clave se pide dentro, no va en la URL."""
+    return FileResponse(RAIZ / "panel.html", media_type="text/html")
 
 
 @app.get("/widget/inmobot.js")

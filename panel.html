@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prospectos · Athena</title>
+<style>
+  :root{
+    --tinta:#16181c; --suave:#5f666f; --linea:#e4e7ea; --fondo:#f4f6f8;
+    --papel:#fff; --acento:#c8102e; --ok:#1a7f45; --aviso:#b45309;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--fondo);color:var(--tinta);
+       font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{background:var(--papel);border-bottom:1px solid var(--linea);
+         padding:14px 16px;position:sticky;top:0;z-index:10}
+  .marca{font-weight:700;font-size:17px}
+  .marca span{color:var(--suave);font-weight:400;font-size:14px}
+  .envoltura{max-width:760px;margin:0 auto;padding:16px}
+
+  /* ---- acceso ---- */
+  .acceso{max-width:380px;margin:60px auto;background:var(--papel);
+          border-radius:12px;padding:26px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .acceso h1{margin:0 0 6px;font-size:20px}
+  .acceso p{margin:0 0 20px;color:var(--suave);font-size:14px}
+  label{display:block;font-size:13px;font-weight:600;margin:14px 0 5px}
+  input,select{width:100%;padding:10px 12px;border:1px solid #d3d7dc;
+               border-radius:8px;font-size:15px;background:var(--papel);color:var(--tinta)}
+  input:focus,select:focus{outline:2px solid var(--acento);outline-offset:-1px;border-color:transparent}
+  button{font:inherit;cursor:pointer;border:0;border-radius:8px}
+  .principal{width:100%;background:var(--acento);color:#fff;padding:12px;
+             font-weight:600;margin-top:20px}
+  .error{background:#fdecea;color:#8a1c12;padding:10px 12px;border-radius:8px;
+         font-size:14px;margin-top:14px}
+
+  /* ---- resumen ---- */
+  .cifras{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px}
+  .cifra{background:var(--papel);border:1px solid var(--linea);border-radius:10px;
+         padding:10px 14px;min-width:92px;flex:0 0 auto}
+  .cifra b{display:block;font-size:21px;line-height:1.2}
+  .cifra span{font-size:12px;color:var(--suave)}
+  .cifra.alerta b{color:var(--aviso)}
+
+  /* ---- filtros ---- */
+  .filtros{display:flex;gap:8px;margin-bottom:14px}
+  .filtros input{flex:1}
+  .filtros select{width:auto;flex:0 0 auto}
+
+  /* ---- prospectos ---- */
+  .ficha{background:var(--papel);border:1px solid var(--linea);border-radius:12px;
+         padding:14px 16px;margin-bottom:12px}
+  .cabeza{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .nombre{font-weight:700;font-size:16px}
+  .cuando{font-size:12px;color:var(--suave);white-space:nowrap}
+  .marbete{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;
+           border-radius:999px;text-transform:uppercase;letter-spacing:.4px}
+  .m-nuevo{background:#fdecea;color:#8a1c12}
+  .m-contactado{background:#e7f4ec;color:var(--ok)}
+  .m-seguimiento{background:#fff4e5;color:var(--aviso)}
+  .m-cerrado{background:#e8eaed;color:var(--suave)}
+  .m-descartado{background:#e8eaed;color:var(--suave)}
+  .m-visita{background:#e8f0fe;color:#1a56b8}
+  .dato{margin-top:9px;font-size:14px}
+  .dato b{color:var(--suave);font-weight:600;display:block;font-size:12px;
+          text-transform:uppercase;letter-spacing:.3px}
+  .notas{background:var(--fondo);border-radius:8px;padding:9px 11px;margin-top:10px;
+         font-size:14px}
+  .repetido{color:var(--aviso);font-size:13px;font-weight:600;margin-top:9px}
+  .acciones{display:flex;gap:8px;margin-top:13px;flex-wrap:wrap;align-items:center}
+  .wa{background:#25d366;color:#fff;padding:9px 14px;font-weight:600;
+      text-decoration:none;border-radius:8px;font-size:14px}
+  .llamar{background:var(--papel);border:1px solid #d3d7dc;padding:9px 14px;
+          font-weight:600;text-decoration:none;color:var(--tinta);border-radius:8px;font-size:14px}
+  .acciones select{width:auto;padding:9px 12px;font-size:14px}
+  .vacio{text-align:center;color:var(--suave);padding:50px 20px}
+  .oculto{display:none}
+</style>
+</head>
+<body>
+
+<div id="acceso" class="acceso">
+  <h1>Prospectos</h1>
+  <p>Entra con la clave que te dio tu administrador.</p>
+  <label for="inq">Inmobiliaria</label>
+  <input id="inq" value="rednorte" autocomplete="off">
+  <label for="tok">Clave de acceso</label>
+  <input id="tok" type="password" autocomplete="current-password">
+  <button class="principal" id="entrar">Entrar</button>
+  <div id="errorAcceso" class="error oculto"></div>
+</div>
+
+<div id="panel" class="oculto">
+  <header>
+    <div class="envoltura" style="padding:0">
+      <div class="marca">Prospectos <span id="deQuien"></span></div>
+    </div>
+  </header>
+  <div class="envoltura">
+    <div class="cifras" id="cifras"></div>
+    <div class="filtros">
+      <input id="buscar" placeholder="Buscar por nombre o teléfono...">
+      <select id="estado">
+        <option value="">Todos</option>
+        <option value="nuevo">Nuevos</option>
+        <option value="contactado">Contactados</option>
+        <option value="en seguimiento">En seguimiento</option>
+        <option value="cerrado">Cerrados</option>
+        <option value="descartado">Descartados</option>
+      </select>
+    </div>
+    <div id="lista"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var API = "";
+  var inquilino = "";
+  var token = "";
+  var temporizador = null;
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  // La clave vive en sessionStorage y NO en la URL: una URL con la clave se
+  // queda en el historial del navegador, se comparte por WhatsApp sin querer
+  // y viaja en la cabecera Referer a cualquier sitio que se abra desde aqui.
+  function recordar() {
+    try {
+      sessionStorage.setItem("athena_panel",
+        JSON.stringify({ inquilino: inquilino, token: token }));
+    } catch (e) { /* modo privado: se vuelve a pedir, no pasa nada */ }
+  }
+
+  function recordado() {
+    try {
+      return JSON.parse(sessionStorage.getItem("athena_panel") || "null");
+    } catch (e) { return null; }
+  }
+
+  function pedir(ruta, opciones) {
+    return fetch(API + ruta, opciones).then(function (r) {
+      if (r.ok) return r.json();
+      return r.json().catch(function () { return {}; }).then(function (d) {
+        var e = new Error(d.detail || ("Error " + r.status));
+        e.status = r.status;
+        throw e;
+      });
+    });
+  }
+
+  function entrar() {
+    inquilino = $("inq").value.trim();
+    token = $("tok").value.trim();
+    if (!inquilino || !token) return;
+
+    $("errorAcceso").classList.add("oculto");
+    cargar().then(function () {
+      recordar();
+      $("acceso").classList.add("oculto");
+      $("panel").classList.remove("oculto");
+      $("deQuien").textContent = "· " + inquilino;
+    }).catch(function (err) {
+      var msg = err.status === 401
+        ? "Clave incorrecta."
+        : err.status === 404
+          ? "No existe esa inmobiliaria."
+          : "No pude conectarme: " + err.message;
+      $("errorAcceso").textContent = msg;
+      $("errorAcceso").classList.remove("oculto");
+    });
+  }
+
+  function cargar() {
+    var p = new URLSearchParams({
+      inquilino: inquilino, token: token, limite: "100"
+    });
+    var estado = $("estado") ? $("estado").value : "";
+    var buscar = $("buscar") ? $("buscar").value.trim() : "";
+    if (estado) p.set("estado", estado);
+    if (buscar) p.set("busqueda", buscar);
+
+    return pedir("/api/leads?" + p.toString()).then(function (d) {
+      pintarCifras(d.resumen || {});
+      pintarLista(d.leads || []);
+      return d;
+    });
+  }
+
+  function pintarCifras(r) {
+    var porEstado = r.por_estado || {};
+    var cajas = [
+      { n: r.total || 0, t: "Total", alerta: false },
+      { n: porEstado["nuevo"] || 0, t: "Sin atender", alerta: (porEstado["nuevo"] || 0) > 0 },
+      { n: porEstado["contactado"] || 0, t: "Contactados", alerta: false },
+      { n: porEstado["cerrado"] || 0, t: "Cerrados", alerta: false }
+    ];
+    if (r.sin_notificar) {
+      cajas.push({ n: r.sin_notificar, t: "Sin avisar", alerta: true });
+    }
+    $("cifras").innerHTML = cajas.map(function (c) {
+      return '<div class="cifra' + (c.alerta ? " alerta" : "") + '">' +
+             "<b>" + c.n + "</b><span>" + c.t + "</span></div>";
+    }).join("");
+  }
+
+  function fecha(iso) {
+    if (!iso) return "";
+    var d = new Date(iso);
+    if (isNaN(d)) return iso;
+    var min = Math.round((Date.now() - d.getTime()) / 60000);
+    if (min < 1) return "ahorita";
+    if (min < 60) return "hace " + min + " min";
+    if (min < 1440) return "hace " + Math.round(min / 60) + " h";
+    return d.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
+  }
+
+  function texto(v) {
+    var d = document.createElement("div");
+    d.textContent = v == null ? "" : String(v);
+    return d.innerHTML;
+  }
+
+  function whatsapp(tel) {
+    var n = String(tel || "").replace(/\D/g, "");
+    if (n.length === 10) n = "52" + n;
+    return n ? "https://wa.me/" + n : "";
+  }
+
+  function pintarLista(leads) {
+    if (!leads.length) {
+      $("lista").innerHTML = '<div class="vacio">No hay prospectos con ese filtro.</div>';
+      return;
+    }
+
+    $("lista").innerHTML = leads.map(function (l) {
+      var esVisita = l.tipo === "visita";
+      var clase = "m-" + String(l.estado || "nuevo").replace(/\s+/g, "");
+      var interes = [].concat(l.propiedades_interes || [], l.propiedad_id || []);
+
+      var filas = "";
+      function fila(etiqueta, valor) {
+        if (!valor) return;
+        filas += '<div class="dato"><b>' + etiqueta + "</b>" + texto(valor) + "</div>";
+      }
+      fila("Qué busca", l.requerimiento);
+      fila("Presupuesto", l.presupuesto);
+      fila("Forma de pago", l.forma_pago);
+      fila("Urgencia", l.urgencia);
+      fila("Le interesó", interes.join(", "));
+      fila("Horario que pidió", l.preferencia_horario);
+
+      var wa = whatsapp(l.telefono);
+
+      return '<div class="ficha" data-folio="' + texto(l.folio) + '">' +
+        '<div class="cabeza"><div>' +
+          '<div class="nombre">' + texto(l.nombre || "Sin nombre") + "</div>" +
+          '<div style="font-size:14px;color:var(--suave)">' + texto(l.telefono || "") + "</div>" +
+        "</div><div style='text-align:right'>" +
+          '<span class="marbete ' + (esVisita ? "m-visita" : clase) + '">' +
+            (esVisita ? "visita" : texto(l.estado || "nuevo")) + "</span>" +
+          '<div class="cuando">' + fecha(l.fecha) + "</div>" +
+        "</div></div>" +
+        filas +
+        (l.notas ? '<div class="notas">' + texto(l.notas) + "</div>" : "") +
+        '<div class="acciones">' +
+          (wa ? '<a class="wa" href="' + wa + '" target="_blank" rel="noopener">WhatsApp</a>' : "") +
+          (l.telefono ? '<a class="llamar" href="tel:' + texto(l.telefono) + '">Llamar</a>' : "") +
+          '<select class="cambiar">' +
+            ["nuevo", "contactado", "en seguimiento", "cerrado", "descartado"].map(function (e) {
+              return '<option value="' + e + '"' +
+                     (e === (l.estado || "nuevo") ? " selected" : "") + ">" + e + "</option>";
+            }).join("") +
+          "</select>" +
+        "</div></div>";
+    }).join("");
+
+    Array.prototype.forEach.call($("lista").querySelectorAll(".cambiar"), function (sel) {
+      sel.addEventListener("change", function () {
+        var folio = sel.closest(".ficha").getAttribute("data-folio");
+        sel.disabled = true;
+        pedir("/api/leads/" + encodeURIComponent(folio) + "/estado", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ inquilino: inquilino, token: token, estado: sel.value })
+        }).then(cargar).catch(function (err) {
+          alert("No se pudo actualizar: " + err.message);
+          sel.disabled = false;
+        });
+      });
+    });
+  }
+
+  function conRetraso() {
+    clearTimeout(temporizador);
+    temporizador = setTimeout(function () { cargar().catch(function () {}); }, 300);
+  }
+
+  $("entrar").addEventListener("click", entrar);
+  $("tok").addEventListener("keydown", function (e) { if (e.key === "Enter") entrar(); });
+  $("buscar").addEventListener("input", conRetraso);
+  $("estado").addEventListener("change", function () { cargar().catch(function () {}); });
+
+  // Sesion guardada: se entra sin volver a teclear la clave.
+  var guardado = recordado();
+  if (guardado && guardado.token) {
+    $("inq").value = guardado.inquilino || "";
+    $("tok").value = guardado.token;
+    entrar();
+  }
+})();
+</script>
+</body>
+</html>

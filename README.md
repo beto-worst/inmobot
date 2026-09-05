@@ -79,7 +79,7 @@ Es copiar un JSON. Cero código.
 | `adaptador` | De dónde salen las propiedades. Ver abajo. |
 | `notificaciones` | Cómo se le avisa al asesor de un prospecto nuevo. Ver abajo. |
 | `contacto.whatsapp` | Número al que se manda al cliente cuando pide un humano. |
-| `contacto.token_panel` | Contraseña para leer `/api/leads`. **Cámbialo por cliente.** |
+| `contacto.token_panel_env` | Variable de `.env` con la clave del panel. **Una por cliente.** |
 | `origenes_permitidos` | Dominios desde los que se puede usar el widget. Vacío = cualquiera. |
 
 ---
@@ -218,6 +218,24 @@ verificación de la empresa y semanas de trámite. Mientras tanto, el correo
 llega hoy, y el aviso incluye un enlace `wa.me` para que el asesor le
 escriba al cliente con un clic desde su celular.
 
+### El panel del asesor
+
+En <http://localhost:8100/panel>. Pensado para celular: un asesor lo abre
+entre visitas, no sentado en una computadora.
+
+Muestra los prospectos con lo que busca cada uno, presupuesto y las notas que
+dejó Athena; botones de WhatsApp y llamar; y un selector para marcarlo como
+contactado, en seguimiento, cerrado o descartado. El contador **Sin avisar**
+te dice si algún prospecto no le llegó al asesor por correo.
+
+La clave se pide dentro y se guarda en `sessionStorage`, **nunca va en la
+URL**: una URL con la clave se queda en el historial del navegador, se
+comparte por WhatsApp sin querer y viaja en la cabecera `Referer`.
+
+Y la clave vive en `.env`, no en el JSON del inquilino: ese archivo se sube a
+git, y ahí una clave queda para siempre en el historial aunque después se
+borre.
+
 ### El teléfono se normaliza
 
 `81 1778 3953`, `+52 811 778 3953` y `(81) 1778-3953` son el mismo cliente.
@@ -270,6 +288,7 @@ al desplegarlo en producción.
 | GET | `/api/config?inquilino=X` | Marca del inquilino (lo usa el widget) |
 | POST | `/api/chat` | Un turno de conversación (respuesta completa) |
 | POST | `/api/chat/stream` | Lo mismo, pero por SSE conforme se escribe. **Es el que usa el widget.** |
+| GET | `/panel` | Panel del asesor (interfaz) |
 | GET | `/api/leads?inquilino=X&token=Y` | Prospectos + resumen. Filtros: `estado`, `tipo`, `busqueda` |
 | POST | `/api/leads/{folio}/estado` | El asesor marca contactado / cerrado / descartado |
 | GET | `/api/leads/{folio}/historial` | Veces que ese teléfono ya había contactado |
@@ -278,7 +297,6 @@ al desplegarlo en producción.
 
 ## Pendientes
 
-- [ ] Panel del asesor (interfaz; los endpoints ya existen)
 - [ ] Búsqueda semántica con embeddings en GPU local
 - [ ] Sesiones en Redis (hoy en memoria: se pierden al reiniciar)
 - [ ] WhatsApp Business API para avisarle al asesor por ahí
