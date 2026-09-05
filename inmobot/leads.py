@@ -18,6 +18,7 @@ import secrets
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .asesores import BuscadorAsesor
 from .basedatos import BaseDatos
 from .config import RAIZ
 from .notificaciones import Notificador
@@ -32,6 +33,27 @@ class RegistroLeads:
         self.base = base or BaseDatos()
         self.notificador = notificador or Notificador()
         self._candado = asyncio.Lock()
+        # Un buscador por inquilino, para que su cache no se mezcle.
+        self._buscadores: dict[str, BuscadorAsesor] = {}
+
+    def _buscador(self, inquilino) -> BuscadorAsesor:
+        if inquilino.id not in self._buscadores:
+            self._buscadores[inquilino.id] = BuscadorAsesor(
+                getattr(inquilino, "asesor_por_propiedad", None) or {})
+        return self._buscadores[inquilino.id]
+
+    @staticmethod
+    def _codigo_de_interes(datos: dict) -> str:
+        """La propiedad que define de quien es el prospecto.
+
+        Una visita apunta a una sola; un lead puede traer varias, y se toma
+        la primera porque es la que Athena presento primero y la que el
+        cliente menciono.
+        """
+        if datos.get("propiedad_id"):
+            return str(datos["propiedad_id"])
+        interes = datos.get("propiedades_interes") or []
+        return str(interes[0]) if interes else ""
 
     def archivo(self, id_inquilino: str) -> Path:
         return self.directorio / f"leads-{id_inquilino}.jsonl"
@@ -47,6 +69,20 @@ class RegistroLeads:
             "estado": "nuevo",
             **{k: v for k, v in (datos or {}).items() if v not in (None, "", [])},
         }
+
+        # 0. Quien es el asesor de esa propiedad. Va antes de guardar para
+        # que el dato quede en el respaldo y en la base, no solo en el correo.
+        destinos_extra: list[str] = []
+        codigo = self._codigo_de_interes(registro)
+        if codigo:
+            asesor = await self._buscador(inquilino).buscar(codigo)
+            if asesor:
+                registro["asesor"] = asesor["nombre"]
+                if asesor.get("telefono"):
+                    registro["asesor_telefono"] = asesor["telefono"]
+                if asesor.get("correo"):
+                    registro["asesor_correo"] = asesor["correo"]
+                    destinos_extra.append(asesor["correo"])
 
         # 1. Respaldo en texto plano.
         async with self._candado:
@@ -65,7 +101,8 @@ class RegistroLeads:
                 self.base.historial_telefono, inquilino.id, registro["telefono"])
             previos = max(0, len(historial) - 1)
 
-        resultado = await self.notificador.enviar(registro, inquilino, previos)
+        resultado = await self.notificador.enviar(
+            registro, inquilino, previos, destinos_extra)
         await self.base.anotar_notificacion(registro["folio"], resultado)
         registro["notificacion"] = resultado
         return registro

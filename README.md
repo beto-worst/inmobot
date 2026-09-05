@@ -78,6 +78,7 @@ Es copiar un JSON. Cero código.
 | `reglas` | Reglas propias del cliente, además de las reglas duras del sistema. |
 | `adaptador` | De dónde salen las propiedades. Ver abajo. |
 | `notificaciones` | Cómo se le avisa al asesor de un prospecto nuevo. Ver abajo. |
+| `asesor_por_propiedad` | URL para saber qué asesor tiene asignada cada propiedad. Ver abajo. |
 | `contacto.whatsapp` | Número al que se manda al cliente cuando pide un humano. |
 | `contacto.token_panel_env` | Variable de `.env` con la clave del panel. **Una por cliente.** |
 | `origenes_permitidos` | Dominios desde los que se puede usar el widget. Vacío = cualquiera. |
@@ -166,6 +167,7 @@ inmobot/
 ├── agente.py        El loop: modelo → herramienta → modelo, con topes
 ├── leads.py         Captura: respaldo → base de datos → aviso al asesor
 ├── basedatos.py     SQLite: prospectos consultables, estados, historial
+├── asesores.py      Qué asesor tiene asignada cada propiedad
 ├── notificaciones.py Aviso al asesor por correo y/o webhook
 ├── config.py        Carga de inquilinos
 └── servidor.py      API HTTP
@@ -210,6 +212,28 @@ aplicación](https://myaccount.google.com/apppasswords), no la normal.
 
 Para desarrollo, `"notificaciones": {"consola": true}` imprime el aviso en
 la terminal en vez de mandarlo.
+
+### Al asesor de esa propiedad, no a un buzón general
+
+Si el sitio del cliente sabe qué asesor tiene asignada cada propiedad, el
+aviso le llega **a él**, que es quien la conoce y quien cobra la comisión:
+
+```json
+"asesor_por_propiedad": {
+  "url": "https://www.rednorte.mx/api/asesor?code={codigo}",
+  "ttl": 21600
+}
+```
+
+La URL debe responder `{"success": true, "agent": {"name", "phone", "email"}}`.
+El sitio de RedNorte ya expone eso en `/api/asesor`.
+
+El asesor encontrado **se suma** a los destinatarios fijos de `notificaciones`,
+no los reemplaza: si la búsqueda falla, el prospecto igual le llega a alguien.
+Su nombre queda guardado en el prospecto y se ve en el panel.
+
+Las consultas se cachean 6 horas por defecto. Sin caché se le pegaría al sitio
+del cliente en cada prospecto, y son cientos de propiedades.
 
 ### Sobre WhatsApp
 

@@ -43,5 +43,9 @@
       "password_env": "SMTP_PASSWORD",
       "de": "Athena de RedNorte <rednorte31@gmail.com>"
     }
+  },
+  "asesor_por_propiedad": {
+    "url": "https://www.rednorte.mx/api/asesor?code={codigo}",
+    "ttl": 21600
   }
 }

@@ -46,6 +46,9 @@ class Inquilino:
     # notificaciones.py. Las contrasenas van en .env, nunca aqui: este
     # archivo se sube a git.
     notificaciones: dict = field(default_factory=dict)
+    # De donde se saca el asesor asignado a cada propiedad, para avisarle
+    # a el y no a un buzon general. Ver asesores.py.
+    asesor_por_propiedad: dict = field(default_factory=dict)
     contacto: dict = field(default_factory=dict)
     marca: dict = field(default_factory=dict)
     origenes_permitidos: list[str] = field(default_factory=list)

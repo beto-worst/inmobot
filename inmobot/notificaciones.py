@@ -24,6 +24,7 @@ from email.message import EmailMessage
 import httpx
 
 ETIQUETAS = [
+    ("asesor", "Asesor asignado"),
     ("nombre", "Cliente"),
     ("telefono", "Telefono"),
     ("correo", "Correo"),
@@ -83,7 +84,13 @@ def redactar(registro: dict, inquilino, previos: int = 0) -> tuple[str, str]:
 class Notificador:
     """Manda el aviso por los canales que tenga configurados el inquilino."""
 
-    async def enviar(self, registro: dict, inquilino, previos: int = 0) -> str:
+    async def enviar(self, registro: dict, inquilino, previos: int = 0,
+                     destinos_extra: list[str] | None = None) -> str:
+        """Manda el aviso. `destinos_extra` es el asesor de esa propiedad.
+
+        Se SUMA a los destinatarios fijos, no los reemplaza: si la busqueda
+        del asesor falla, el prospecto igual le llega a alguien.
+        """
         config = getattr(inquilino, "notificaciones", None) or {}
         if not config:
             return "sin canales configurados"
@@ -97,7 +104,7 @@ class Notificador:
 
         if config.get("email"):
             resultados.append("email:" + await self._email(
-                config["email"], asunto, cuerpo))
+                config["email"], asunto, cuerpo, destinos_extra))
 
         if config.get("webhook"):
             resultados.append("webhook:" + await self._webhook(
@@ -105,10 +112,20 @@ class Notificador:
 
         return "; ".join(resultados) if resultados else "sin canales configurados"
 
-    async def _email(self, cfg: dict, asunto: str, cuerpo: str) -> str:
+    async def _email(self, cfg: dict, asunto: str, cuerpo: str,
+                     destinos_extra: list[str] | None = None) -> str:
         destinos = cfg.get("para") or []
         if isinstance(destinos, str):
             destinos = [destinos]
+        destinos = list(destinos)
+
+        # dict.fromkeys quita repetidos conservando el orden: si el asesor
+        # de la propiedad ya estaba en la lista fija, no le llegan dos.
+        for correo in (destinos_extra or []):
+            if correo and correo not in destinos:
+                destinos.append(correo)
+        destinos = list(dict.fromkeys(destinos))
+
         if not destinos:
             return "fallo: falta 'para'"
 
