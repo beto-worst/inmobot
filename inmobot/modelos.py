@@ -98,9 +98,18 @@ class Propiedad:
         return {k: v for k, v in d.items() if v not in (None, "", [], {})}
 
 
-# Frontera entre un precio de compra y una renta mensual, en pesos. Ninguna
-# propiedad se vende en 200 mil ni se renta en 200 mil al mes, asi que el
-# numero separa los dos mundos sin ambiguedad real en el mercado mexicano.
+# Frontera entre un precio de compra y una renta mensual, en pesos.
+#
+# Medido contra el inventario real de RedNorte (548 propiedades):
+#   - ventas por debajo del umbral:   0 de 269  (la mas barata es $330,000)
+#   - rentas por encima del umbral:  25 de 279  (9%), TODAS comerciales o
+#     industriales: naves, locales, oficinas y un edificio completo, de
+#     $200,000 a $1,000,000 al mes.
+#
+# O sea que solo se equivoca con rentas comerciales grandes, y unicamente
+# cuando la persona no dijo si compra o renta. Quien renta una nave de un
+# millon al mes dice "renta"; ademas el prompt tiene instruccion de
+# preguntarlo. Es una red de seguridad, no el mecanismo principal.
 UMBRAL_VENTA_VS_RENTA = 200_000
 
 

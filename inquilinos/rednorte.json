@@ -12,10 +12,11 @@
   "adaptador": {
     "tipo": "nocnok",
     "config": {
+      "proxy_url": "https://www.rednorte.mx/api/propiedades",
       "api_key_env": "NOCNOK_API_KEY",
       "url_ficha": "https://www.rednorte.mx/propiedad/{codigo}",
       "tam_pagina": 100,
-      "max_paginas": 10
+      "max_paginas": 50
     }
   },
   "contacto": {

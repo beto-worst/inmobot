@@ -40,8 +40,14 @@ class AdaptadorNocnok(AdaptadorInventario):
     def __init__(self, config: dict | None = None, ttl_segundos: int = 300):
         super().__init__(config, ttl_segundos)
         self.var_llave = self.config.get("api_key_env", "NOCNOK_API_KEY")
-        self.tam_pagina = int(self.config.get("tam_pagina", 100))
-        self.max_paginas = int(self.config.get("max_paginas", 10))
+        # NOCNOK topa el tamano de pagina en 100 aunque se pida mas.
+        self.tam_pagina = min(int(self.config.get("tam_pagina", 100)), 100)
+        self.max_paginas = int(self.config.get("max_paginas", 50))
+        # Si el cliente ya tiene un sitio con un proxy a NOCNOK (como
+        # /api/propiedades en el de RedNorte), se le apunta ahi y no hace
+        # falta que entregue su llave de API: el proxy la guarda del lado
+        # del servidor. Un obstaculo menos para cerrar la venta.
+        self.proxy_url = self.config.get("proxy_url", "")
         # Plantilla para armar el link publico de cada ficha, p. ej.
         # "https://www.rednorte.mx/propiedad/{codigo}". Sin esto el agente
         # puede describir la propiedad pero no mandar a donde verla.
@@ -58,29 +64,53 @@ class AdaptadorNocnok(AdaptadorInventario):
         return valor
 
     async def _descargar(self) -> list[Propiedad]:
+        """Baja el inventario completo, pagina por pagina.
+
+        OJO con 'pageCount': NO es el numero de paginas, es un espejo de
+        'pageSize' (pides 20 y responde 20; pides 100 y responde 100). Usarlo
+        como total de paginas -que es lo que parece- deja el inventario
+        truncado en silencio, sin ningun error. Las paginas reales se sacan
+        de 'totalItems'.
+        """
         items: list[dict] = []
-        async with httpx.AsyncClient(timeout=30.0) as cliente:
+        async with httpx.AsyncClient(timeout=40.0) as cliente:
             pagina = 1
-            total_paginas = 1
+            total_paginas = self.max_paginas
             while pagina <= total_paginas and pagina <= self.max_paginas:
-                r = await cliente.post(
-                    URL_BUSQUEDA,
-                    headers={"Content-Type": "application/json",
-                             "x-api-key": self.llave},
-                    json={"pageNumber": pagina, "pageSize": self.tam_pagina,
-                          "sortBy": "CreatedAt", "sortDirection": "Descending"},
-                )
-                if r.status_code != 200:
-                    raise ErrorInventario(
-                        f"NOCNOK respondio {r.status_code}: {r.text[:200]}"
-                    )
-                cuerpo = r.json() or {}
-                datos = cuerpo.get("data") or {}
-                items.extend(datos.get("items") or [])
-                total_paginas = datos.get("pageCount") or 1
+                datos = await self._pedir_pagina(cliente, pagina)
+                lote = datos.get("items") or []
+                items.extend(lote)
+
+                total = datos.get("totalItems")
+                if total:
+                    total_paginas = -(-int(total) // self.tam_pagina)  # techo
+
+                # Cinturon y tirantes: si la pagina vino incompleta o vacia,
+                # ya no hay mas, sin importar lo que digan los contadores.
+                if len(lote) < self.tam_pagina:
+                    break
                 pagina += 1
 
+        if not items:
+            raise ErrorInventario("El inventario respondio vacio.")
         return [self._mapear(x) for x in items]
+
+    async def _pedir_pagina(self, cliente: httpx.AsyncClient, pagina: int) -> dict:
+        cuerpo = {"pageNumber": pagina, "pageSize": self.tam_pagina,
+                  "sortBy": "CreatedAt", "sortDirection": "Descending"}
+
+        if self.proxy_url:
+            url, cabeceras = self.proxy_url, {"Content-Type": "application/json"}
+        else:
+            url = URL_BUSQUEDA
+            cabeceras = {"Content-Type": "application/json", "x-api-key": self.llave}
+
+        r = await cliente.post(url, headers=cabeceras, json=cuerpo)
+        if r.status_code != 200:
+            fuente = "El proxy" if self.proxy_url else "NOCNOK"
+            raise ErrorInventario(
+                f"{fuente} respondio {r.status_code}: {r.text[:200]}")
+        return (r.json() or {}).get("data") or {}
 
     def _mapear(self, p: dict) -> Propiedad:
         es_renta = bool(p.get("isRent")) and not p.get("isSale")
