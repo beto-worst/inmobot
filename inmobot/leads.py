@@ -72,7 +72,7 @@ class RegistroLeads:
 
         # 0. Quien es el asesor de esa propiedad. Va antes de guardar para
         # que el dato quede en el respaldo y en la base, no solo en el correo.
-        destinos_extra: list[str] = []
+        asesor: dict | None = None
         codigo = self._codigo_de_interes(registro)
         if codigo:
             asesor = await self._buscador(inquilino).buscar(codigo)
@@ -82,7 +82,6 @@ class RegistroLeads:
                     registro["asesor_telefono"] = asesor["telefono"]
                 if asesor.get("correo"):
                     registro["asesor_correo"] = asesor["correo"]
-                    destinos_extra.append(asesor["correo"])
 
         # 1. Respaldo en texto plano.
         async with self._candado:
@@ -102,7 +101,7 @@ class RegistroLeads:
             previos = max(0, len(historial) - 1)
 
         resultado = await self.notificador.enviar(
-            registro, inquilino, previos, destinos_extra)
+            registro, inquilino, previos, asesor)
         await self.base.anotar_notificacion(registro["folio"], resultado)
         registro["notificacion"] = resultado
         return registro

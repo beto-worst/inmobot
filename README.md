@@ -235,12 +235,37 @@ Su nombre queda guardado en el prospecto y se ve en el panel.
 Las consultas se cachean 6 horas por defecto. Sin caché se le pegaría al sitio
 del cliente en cada prospecto, y son cientos de propiedades.
 
-### Sobre WhatsApp
+### Avisar por WhatsApp
 
-Mandar un WhatsApp automático exige la API de WhatsApp Business de Meta, con
-verificación de la empresa y semanas de trámite. Mientras tanto, el correo
-llega hoy, y el aviso incluye un enlace `wa.me` para que el asesor le
-escriba al cliente con un clic desde su celular.
+El canal existe y usa la **Cloud API oficial de Meta**. No hay atajo: las
+"APIs no oficiales" violan los términos de WhatsApp y terminan con el número
+baneado.
+
+```json
+"notificaciones": {
+  "whatsapp": {
+    "token_env": "WHATSAPP_TOKEN",
+    "telefono_id_env": "WHATSAPP_TELEFONO_ID",
+    "plantilla": "nuevo_prospecto",
+    "idioma": "es_MX"
+  }
+}
+```
+
+Meta exige una **plantilla aprobada** para iniciar una conversación; solo
+dentro de las 24 h siguientes a que la persona te escriba se puede mandar
+texto libre. Si omites `plantilla`, se manda texto libre (útil para probar
+con el número de pruebas de Meta).
+
+Los parámetros van en el orden de los `{{1}}`, `{{2}}`, `{{3}}` de la
+plantilla: nombre, teléfono y qué busca. **Cambiar el orden aquí sin
+cambiarlo en Meta manda los datos al hueco equivocado.**
+
+Al asesor de la propiedad se le manda a su teléfono además de a los números
+fijos, igual que con el correo.
+
+El aviso por correo incluye de todos modos un enlace `wa.me` para que el
+asesor le escriba **al cliente** con un clic.
 
 ### El panel del asesor
 

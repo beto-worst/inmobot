@@ -39,6 +39,15 @@ ETIQUETAS = [
 ]
 
 
+def _solo_digitos(valor) -> str:
+    """Normaliza a como lo espera WhatsApp: digitos con lada de pais.
+
+    Un numero de 10 digitos se asume mexicano y se le antepone 52.
+    """
+    n = "".join(c for c in str(valor or "") if c.isdigit())
+    return "52" + n if len(n) == 10 else n
+
+
 def redactar(registro: dict, inquilino, previos: int = 0) -> tuple[str, str]:
     """Arma asunto y cuerpo. Pensado para leerse en el celular, de un vistazo."""
     es_visita = registro.get("tipo") == "visita"
@@ -85,11 +94,12 @@ class Notificador:
     """Manda el aviso por los canales que tenga configurados el inquilino."""
 
     async def enviar(self, registro: dict, inquilino, previos: int = 0,
-                     destinos_extra: list[str] | None = None) -> str:
-        """Manda el aviso. `destinos_extra` es el asesor de esa propiedad.
+                     asesor: dict | None = None) -> str:
+        """Manda el aviso por todos los canales configurados.
 
-        Se SUMA a los destinatarios fijos, no los reemplaza: si la busqueda
-        del asesor falla, el prospecto igual le llega a alguien.
+        `asesor` es quien tiene asignada la propiedad. Su correo y su
+        telefono SE SUMAN a los destinatarios fijos, no los reemplazan: si
+        la busqueda del asesor falla, el prospecto igual le llega a alguien.
         """
         config = getattr(inquilino, "notificaciones", None) or {}
         if not config:
@@ -103,8 +113,15 @@ class Notificador:
             resultados.append("consola:ok")
 
         if config.get("email"):
+            correo = (asesor or {}).get("correo")
             resultados.append("email:" + await self._email(
-                config["email"], asunto, cuerpo, destinos_extra))
+                config["email"], asunto, cuerpo, [correo] if correo else []))
+
+        if config.get("whatsapp"):
+            telefono = (asesor or {}).get("telefono")
+            resultados.append("whatsapp:" + await self._whatsapp(
+                config["whatsapp"], registro, inquilino,
+                [telefono] if telefono else []))
 
         if config.get("webhook"):
             resultados.append("webhook:" + await self._webhook(
@@ -157,6 +174,111 @@ class Notificador:
             s.starttls()
             s.login(usuario, password)
             s.send_message(msg)
+
+    async def _whatsapp(self, cfg: dict, registro: dict, inquilino,
+                        destinos_extra: list[str] | None = None) -> str:
+        """Manda el aviso por la API oficial de WhatsApp Business (Meta).
+
+        No hay atajo legitimo: un mensaje automatico de WhatsApp exige la
+        Cloud API de Meta. Las "APIs no oficiales" violan los terminos y
+        terminan con el numero baneado, que con 32 asesores dependiendo de
+        el seria peor que no tener WhatsApp.
+
+        Meta exige una PLANTILLA aprobada para iniciar una conversacion.
+        Solo dentro de las 24 horas siguientes a que la persona te escriba
+        se puede mandar texto libre; por eso `plantilla` es lo normal aqui.
+        """
+        destinos = cfg.get("para") or []
+        if isinstance(destinos, str):
+            destinos = [destinos]
+        destinos = list(destinos) + [d for d in (destinos_extra or []) if d]
+        destinos = [_solo_digitos(d) for d in destinos]
+        destinos = [d for d in dict.fromkeys(destinos) if d]
+        if not destinos:
+            return "sin destinatarios"
+
+        token = os.environ.get(cfg.get("token_env", "WHATSAPP_TOKEN"), "")
+        telefono_id = os.environ.get(cfg.get("telefono_id_env", "WHATSAPP_TELEFONO_ID"), "")
+        if not token or not telefono_id:
+            return (f"fallo: faltan {cfg.get('token_env', 'WHATSAPP_TOKEN')} y/o "
+                    f"{cfg.get('telefono_id_env', 'WHATSAPP_TELEFONO_ID')} en .env")
+
+        version = cfg.get("version_api", "v21.0")
+        url = f"https://graph.facebook.com/{version}/{telefono_id}/messages"
+        plantilla = cfg.get("plantilla")
+
+        entregados, fallos = 0, []
+        async with httpx.AsyncClient(timeout=20.0) as c:
+            for numero in destinos:
+                cuerpo = (self._mensaje_plantilla(plantilla, cfg, registro, inquilino,
+                                                  numero)
+                          if plantilla
+                          else self._mensaje_texto(registro, inquilino, numero))
+                try:
+                    r = await c.post(
+                        url,
+                        headers={"Authorization": "Bearer " + token,
+                                 "Content-Type": "application/json"},
+                        json=cuerpo,
+                    )
+                    if r.status_code < 300:
+                        entregados += 1
+                    else:
+                        detalle = ""
+                        try:
+                            detalle = (r.json().get("error") or {}).get("message", "")
+                        except Exception:  # noqa: BLE001
+                            detalle = r.text[:120]
+                        fallos.append(f"{numero}: {r.status_code} {detalle}")
+                except Exception as err:  # noqa: BLE001 - el lead ya esta guardado
+                    fallos.append(f"{numero}: {err}")
+
+        if entregados and not fallos:
+            return "ok"
+        if entregados:
+            return f"ok parcial ({entregados} de {len(destinos)}); " + "; ".join(fallos)
+        return "fallo: " + "; ".join(fallos)
+
+    def _mensaje_plantilla(self, nombre: str, cfg: dict, registro: dict,
+                           inquilino, numero: str) -> dict:
+        # Los parametros van en el orden de los {{1}}, {{2}}... de la
+        # plantilla que aprobo Meta. Cambiar el orden aqui sin cambiarlo
+        # alla manda los datos al hueco equivocado.
+        valores = [
+            str(registro.get("nombre") or "Sin nombre"),
+            str(registro.get("telefono") or "sin telefono"),
+            str(registro.get("requerimiento") or "Sin detalle")[:280],
+        ]
+        return {
+            "messaging_product": "whatsapp",
+            "to": numero,
+            "type": "template",
+            "template": {
+                "name": nombre,
+                "language": {"code": cfg.get("idioma", "es_MX")},
+                "components": [{
+                    "type": "body",
+                    "parameters": [{"type": "text", "text": v} for v in valores],
+                }],
+            },
+        }
+
+    def _mensaje_texto(self, registro: dict, inquilino, numero: str) -> dict:
+        """Texto libre. Solo llega dentro de la ventana de 24 horas."""
+        lineas = [f"Nuevo prospecto de {inquilino.nombre}", ""]
+        for clave, etiqueta in ETIQUETAS:
+            valor = registro.get(clave)
+            if not valor:
+                continue
+            if isinstance(valor, list):
+                valor = ", ".join(str(v) for v in valor)
+            lineas.append(f"{etiqueta}: {valor}")
+        return {
+            "messaging_product": "whatsapp",
+            "to": numero,
+            "type": "text",
+            "text": {"body": "\n".join(lineas)[:4000]},
+        }
 
     async def _webhook(self, url: str, registro: dict) -> str:
         try:
