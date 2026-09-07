@@ -63,14 +63,6 @@ copy .env.example .env
 Y llenarlo con tus llaves. Los prospectos capturados (`datos/athena.db`)
 tampoco viajan por GitHub: cada computadora tiene los suyos.
 
-Abre <http://localhost:8100>. El widget de abajo a la derecha usa el inquilino
-`demo`, con 14 propiedades inventadas de Monterrey — sirve para probar sin
-tocar ningún CRM.
-
-Para probarlo con el inventario de un cliente real:
-<http://localhost:8100/?inquilino=rednorte>. Sirve para enseñarle a un
-prospecto su propio catálogo en la junta.
-
 Para probar la lógica **sin gastar API**:
 
 ```bash
