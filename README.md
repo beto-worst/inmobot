@@ -14,24 +14,54 @@ asesor con todo el contexto. El asesor entra solo a cerrar.
 
 ---
 
-## Arrancar en local
+## Abrirla
+
+**Doble clic en `Abrir-Athena.bat`.** Nada más.
+
+La primera vez en una computadora instala sola lo que le falte (tarda un par
+de minutos) y luego abre el navegador. Para apagarla, cierras la ventana negra.
+
+Se abre en:
+
+| | |
+|---|---|
+| **Para enseñarla** | <http://localhost:8100/?inquilino=rednorte> — inventario real |
+| Con datos ficticios | <http://localhost:8100> — 14 propiedades inventadas |
+| Panel del asesor | <http://localhost:8100/panel> |
+
+Si prefieres la terminal:
 
 ```bash
 cd C:/Users/dekuo/Downloads/inmobot
 python -m pip install -r requirements.txt
-```
-
-Copia `.env.example` a `.env` y pon tu llave de <https://console.anthropic.com>:
-
-```
-ANTHROPIC_API_KEY=sk-ant-...
-```
-
-Levanta el servidor:
-
-```bash
 python -m inmobot.servidor
 ```
+
+---
+
+## Llevarla a otra computadora
+
+**Copia la carpeta completa** (USB, OneDrive, Drive) y haz doble clic en
+`Abrir-Athena.bat` allá. Ya está: el lanzador instala lo que falte solo.
+
+Lo único que necesita la otra computadora es **Python**, de
+<https://www.python.org/downloads/>. Al instalarlo hay que marcar la casilla
+**"Add python.exe to PATH"** o no va a funcionar.
+
+Copiar la carpeta es mejor que clonar de GitHub porque se lleva el `.env`,
+que no está en el repositorio. Por lo mismo: **esa carpeta lleva tus llaves
+dentro.** No la subas a un Drive compartido ni se la pases a nadie.
+
+Si prefieres clonar de GitHub, después hay que crear el `.env` a mano:
+
+```bash
+git clone https://github.com/beto-worst/inmobot.git
+cd inmobot
+copy .env.example .env
+```
+
+Y llenarlo con tus llaves. Los prospectos capturados (`datos/athena.db`)
+tampoco viajan por GitHub: cada computadora tiene los suyos.
 
 Abre <http://localhost:8100>. El widget de abajo a la derecha usa el inquilino
 `demo`, con 14 propiedades inventadas de Monterrey — sirve para probar sin
