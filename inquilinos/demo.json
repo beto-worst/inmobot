@@ -14,7 +14,7 @@
     "token_panel": "demo-cambiar-este-token"
   },
   "marca": {
-    "color": "#1f6feb",
+    "color": "#1F5D4C",
     "titulo": "Athena",
     "saludo": "Hola, soy Athena, la asistente de Inmobiliaria Demo. Digame que anda buscando: zona, cuantas recamaras y su presupuesto aproximado."
   },

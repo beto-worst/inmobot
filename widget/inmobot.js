@@ -90,7 +90,7 @@
   var boton = raiz.querySelector(".enviar");
   var titulo = raiz.querySelector(".titulo");
 
-  host.style.setProperty("--acento", "#1f6feb");
+  host.style.setProperty("--acento", "#1F5D4C");
 
   fetch(API + "/api/config?inquilino=" + encodeURIComponent(INQUILINO))
     .then(function (r) { return r.ok ? r.json() : null; })
