@@ -7,11 +7,13 @@ from .archivo import AdaptadorArchivo
 from .base import AdaptadorInventario
 from .demo import AdaptadorDemo
 from .nocnok import AdaptadorNocnok
+from .sitio import AdaptadorSitio
 
 ADAPTADORES = {
     "demo": AdaptadorDemo,
     "nocnok": AdaptadorNocnok,
     "archivo": AdaptadorArchivo,
+    "sitio": AdaptadorSitio,
 }
 
 

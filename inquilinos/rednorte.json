@@ -10,13 +10,11 @@
     "Si quieren vender o rentar su propiedad, toma sus datos con registrar_lead y marca en notas que es un prospecto de captacion, no de compra."
   ],
   "adaptador": {
-    "tipo": "nocnok",
+    "tipo": "sitio",
     "config": {
-      "proxy_url": "https://www.rednorte.mx/api/propiedades",
-      "api_key_env": "NOCNOK_API_KEY",
-      "url_ficha": "https://www.rednorte.mx/propiedad/{codigo}",
-      "tam_pagina": 100,
-      "max_paginas": 50
+      "url": "https://www.rednorte.mx/api/athena/inventario",
+      "token_env": "ATHENA_TOKEN",
+      "url_ficha": "https://www.rednorte.mx/propiedad/{codigo}"
     }
   },
   "contacto": {
@@ -45,7 +43,8 @@
     }
   },
   "asesor_por_propiedad": {
-    "url": "https://www.rednorte.mx/api/asesor?code={codigo}",
+    "url": "https://www.rednorte.mx/api/athena/asesor?code={codigo}",
+    "token_env": "ATHENA_TOKEN",
     "ttl": 21600
   }
 }
