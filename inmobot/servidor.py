@@ -12,14 +12,17 @@ import time
 from pathlib import Path
 
 import anthropic
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import (FileResponse, JSONResponse, PlainTextResponse,
+                               StreamingResponse)
 from pydantic import BaseModel, Field
 
 from .agente import Agente, ResultadoStream
 from .config import RAIZ, RegistroInquilinos, cargar_dotenv
+from .conversaciones import Conversaciones, esta_pausada
 from .leads import RegistroLeads
+from .whatsapp import (buscar_inquilino, canal_de, firma_valida, leer_entrantes)
 
 cargar_dotenv()
 
@@ -33,6 +36,9 @@ app = FastAPI(title="Inmobot", version="0.1.0")
 
 registro = RegistroInquilinos()
 leads = RegistroLeads()
+# Las conversaciones del sitio viven en memoria; las de WhatsApp no pueden:
+# el cliente contesta tres horas despues y el servidor ya se reinicio.
+conversaciones = Conversaciones()
 
 # El cliente se construye en la primera peticion de chat, no al arrancar.
 # Asi el servidor levanta, sirve el widget y responde /api/config aunque
@@ -276,6 +282,119 @@ async def historial(folio: str, inquilino: str, token: str = ""):
     telefono = encontrados[0].get("telefono", "")
     return {"folio": folio,
             "contactos": leads.base.historial_telefono(inquilino, telefono)}
+
+
+# ============================================================
+# WhatsApp
+# ============================================================
+@app.get("/webhook/whatsapp")
+async def whatsapp_verificar(request: Request):
+    """El saludo que hace Meta al dar de alta la direccion.
+
+    Manda un reto y espera que se lo devolvamos tal cual, en texto plano,
+    para comprobar que de este lado hay alguien que conoce el token.
+    """
+    p = request.query_params
+    esperado = os.environ.get("META_VERIFY_TOKEN", "")
+    if not esperado:
+        raise HTTPException(503, "Falta META_VERIFY_TOKEN en el .env")
+    if p.get("hub.mode") == "subscribe" and p.get("hub.verify_token") == esperado:
+        return PlainTextResponse(p.get("hub.challenge", ""))
+    raise HTTPException(403, "Token de verificacion incorrecto")
+
+
+@app.post("/webhook/whatsapp")
+async def whatsapp_entrada(request: Request, tareas: BackgroundTasks):
+    """Recibe los mensajes y contesta 200 de inmediato.
+
+    El modelo tarda segundos en responder y Meta reintenta si no le
+    contestamos rapido. Por eso aqui solo se valida y se encola: contestarle
+    al cliente pasa despues, ya con la respuesta enviada a Meta.
+    """
+    cuerpo = await request.body()
+    if not firma_valida(cuerpo, request.headers.get("x-hub-signature-256", ""),
+                        os.environ.get("META_APP_SECRET", "")):
+        raise HTTPException(403, "Firma invalida")
+
+    try:
+        aviso = json.loads(cuerpo)
+    except json.JSONDecodeError:
+        raise HTTPException(400, "Cuerpo que no es JSON")
+
+    for mensaje in leer_entrantes(aviso):
+        tareas.add_task(_atender_whatsapp, mensaje)
+    return {"recibido": True}
+
+
+async def _atender_whatsapp(m) -> None:
+    """Contesta un mensaje de WhatsApp. Nunca levanta: Meta ya se fue."""
+    try:
+        inq = buscar_inquilino(registro, m.telefono_id)
+        if not inq:
+            print(json.dumps({"evento": "whatsapp_sin_inquilino",
+                              "telefono_id": m.telefono_id}))
+            return
+
+        canal = canal_de(inq)
+        # Meta reintenta; sin esto el cliente recibe la misma respuesta dos veces.
+        if await conversaciones.es_repetido(m.id):
+            return
+
+        if m.fuera_de_ventana:
+            print(json.dumps({"evento": "whatsapp_fuera_de_ventana", "de": m.de}))
+            return
+
+        if not m.texto:
+            await canal.enviar(m.de, (
+                f"Por ahora solo puedo leer mensajes de texto. Escribeme que "
+                f"necesitas y con gusto te ayudo."))
+            return
+
+        conv = await conversaciones.abrir("whatsapp", m.de, inq.id, m.nombre)
+        # Si un asesor entro a contestar a mano, la IA se calla en ese chat.
+        if esta_pausada(conv):
+            return
+
+        await canal.marcar_leido(m.id)
+
+        respuesta, historial = await obtener_agente().responder(
+            inquilino=inq, adaptador=registro.adaptador(inq.id),
+            historial=conv["historial"], mensaje=m.texto,
+            sesion_id=f"whatsapp:{m.de}",
+        )
+
+        # Se guarda antes de enviar: si el envio falla, la conversacion no
+        # pierde el turno y el cliente no tiene que repetirse.
+        await conversaciones.guardar("whatsapp", m.de, historial)
+        resultado = await canal.enviar(m.de, respuesta.texto)
+
+        print(json.dumps({"evento": "whatsapp_contestado", "inquilino": inq.id,
+                          "de": m.de, "envio": resultado,
+                          "costo_usd": round(respuesta.costo_usd, 5)}))
+    except Exception as e:  # noqa: BLE001 - una falla no puede tumbar el canal
+        print(json.dumps({"evento": "whatsapp_error", "de": getattr(m, "de", ""),
+                          "error": f"{type(e).__name__}: {e}"}))
+
+
+class PeticionPausa(BaseModel):
+    contacto: str
+    minutos: int = 120
+    canal: str = "whatsapp"
+
+
+@app.post("/api/conversaciones/pausar")
+async def pausar_conversacion(p: PeticionPausa, inquilino: str, token: str = ""):
+    """Calla a la IA en un chat para que conteste una persona."""
+    _autorizar_panel(inquilino, token)
+    await conversaciones.pausar(p.canal, p.contacto, p.minutos)
+    return {"pausada": True, "minutos": p.minutos}
+
+
+@app.post("/api/conversaciones/reanudar")
+async def reanudar_conversacion(p: PeticionPausa, inquilino: str, token: str = ""):
+    _autorizar_panel(inquilino, token)
+    await conversaciones.reanudar(p.canal, p.contacto)
+    return {"pausada": False}
 
 
 @app.get("/panel")

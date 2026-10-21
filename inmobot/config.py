@@ -49,6 +49,10 @@ class Inquilino:
     # De donde se saca el asesor asignado a cada propiedad, para avisarle
     # a el y no a un buzon general. Ver asesores.py.
     asesor_por_propiedad: dict = field(default_factory=dict)
+    # Por donde mas le llegan clientes, ademas del chat del sitio. Hoy
+    # WhatsApp; cada canal trae su id y de que variable sale su token.
+    # Ver whatsapp.py.
+    canales: dict = field(default_factory=dict)
     contacto: dict = field(default_factory=dict)
     marca: dict = field(default_factory=dict)
     origenes_permitidos: list[str] = field(default_factory=list)
