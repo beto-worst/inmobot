@@ -32,6 +32,13 @@ VIDA_SESION = 60 * 60
 # conversacion de chat ya no gana nada y solo cuesta tokens por turno.
 MAX_HISTORIAL = 40
 
+# Topes de gasto. Un chat abierto en internet es una llave de API abierta:
+# sin esto, cualquiera con un script deja al cliente una factura de cientos
+# de dolares en una noche. Se puede subir por inquilino con "limites".
+MSJ_POR_IP = 20            # por ventana
+VENTANA_IP = 10 * 60       # segundos
+MSJ_POR_DIA = 400          # por inquilino, todos los visitantes juntos
+
 app = FastAPI(title="Inmobot", version="0.1.0")
 
 registro = RegistroInquilinos()
@@ -101,10 +108,11 @@ async def config(inquilino: str):
 
 
 @app.post("/api/chat")
-async def chat(p: PeticionChat):
+async def chat(p: PeticionChat, request: Request):
     inq = registro.obtener(p.inquilino)
     if not inq:
         raise HTTPException(404, "Inquilino no encontrado")
+    _limitar(request, inq)
     adaptador = registro.adaptador(p.inquilino)
 
     sesion_id = p.sesion or secrets.token_urlsafe(12)
@@ -148,7 +156,7 @@ async def chat(p: PeticionChat):
 
 
 @app.post("/api/chat/stream")
-async def chat_stream(p: PeticionChat):
+async def chat_stream(p: PeticionChat, request: Request):
     """Igual que /api/chat pero la respuesta sale conforme se escribe.
 
     Sin esto el cliente mira una animacion de puntitos varios segundos y
@@ -158,6 +166,7 @@ async def chat_stream(p: PeticionChat):
     inq = registro.obtener(p.inquilino)
     if not inq:
         raise HTTPException(404, "Inquilino no encontrado")
+    _limitar(request, inq)
     adaptador = registro.adaptador(p.inquilino)
 
     sesion_id = p.sesion or secrets.token_urlsafe(12)
@@ -211,6 +220,53 @@ async def chat_stream(p: PeticionChat):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# ip -> (cuantos, desde_cuando) | inquilino -> (cuantos, que dia)
+_uso_ip: dict[str, tuple[int, float]] = {}
+_uso_dia: dict[str, tuple[int, str]] = {}
+
+
+def _limitar(request: Request, inq) -> None:
+    """Corta al visitante que abusa, y al inquilino que se paso del dia.
+
+    Son dos cosas distintas: lo primero frena a un bot; lo segundo es el
+    techo de la factura, pase lo que pase.
+    """
+    limites = getattr(inq, "limites", None) or {}
+    por_ip = int(limites.get("mensajes_por_ip", MSJ_POR_IP))
+    por_dia = int(limites.get("mensajes_por_dia", MSJ_POR_DIA))
+
+    ahora = time.time()
+    adelante = request.headers.get("x-forwarded-for", "")
+    ip = adelante.split(",")[0].strip() or (
+        request.client.host if request.client else "desconocida")
+
+    if len(_uso_ip) > 5_000:
+        _uso_ip.clear()
+
+    cuantos, desde = _uso_ip.get(ip, (0, ahora))
+    if ahora - desde >= VENTANA_IP:
+        cuantos, desde = 0, ahora
+    cuantos += 1
+    _uso_ip[ip] = (cuantos, desde)
+    if cuantos > por_ip:
+        espera = int(VENTANA_IP - (ahora - desde))
+        raise HTTPException(429, "Vas muy rapido. Intenta de nuevo en un momento.",
+                            headers={"Retry-After": str(max(1, espera))})
+
+    hoy = time.strftime("%Y-%m-%d")
+    gastados, dia = _uso_dia.get(inq.id, (0, hoy))
+    if dia != hoy:
+        gastados, dia = 0, hoy
+    gastados += 1
+    _uso_dia[inq.id] = (gastados, dia)
+    if gastados > por_dia:
+        print(json.dumps({"evento": "tope_diario", "inquilino": inq.id,
+                          "mensajes": gastados}))
+        raise HTTPException(
+            503, "El asistente alcanzo su limite de hoy. Escribenos por WhatsApp "
+                 "y con gusto te atendemos.")
 
 
 def _autorizar_panel(inquilino: str, token: str):

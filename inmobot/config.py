@@ -53,6 +53,9 @@ class Inquilino:
     # WhatsApp; cada canal trae su id y de que variable sale su token.
     # Ver whatsapp.py.
     canales: dict = field(default_factory=dict)
+    # Topes de gasto del chat publico: {"mensajes_por_ip": 20,
+    # "mensajes_por_dia": 400}. Sin esto manda el valor del servidor.
+    limites: dict = field(default_factory=dict)
     contacto: dict = field(default_factory=dict)
     marca: dict = field(default_factory=dict)
     origenes_permitidos: list[str] = field(default_factory=list)
