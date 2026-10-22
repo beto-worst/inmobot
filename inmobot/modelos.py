@@ -46,6 +46,10 @@ class Propiedad:
     terreno_m2: float = 0.0
     descripcion: str = ""
     amenidades: list[str] = field(default_factory=list)
+    # Selecciones curadas del cliente: "Luxury", "Preventa", "Oportunidad".
+    # No salen del CRM sino de una decision humana, y el asistente no puede
+    # adivinarlas: o vienen marcadas, o para el no existen.
+    etiquetas: list[str] = field(default_factory=list)
     imagenes: list[str] = field(default_factory=list)
     url: str = ""
 
@@ -60,6 +64,7 @@ class Propiedad:
         piezas = [
             self.titulo, self.descripcion, self.colonia,
             self.municipio, self.estado, " ".join(self.amenidades),
+            " ".join(self.etiquetas),
         ]
         return normalizar(" ".join(piezas))
 
@@ -85,6 +90,11 @@ class Propiedad:
         }
         if self.amenidades:
             d["amenidades"] = self.amenidades[:8]
+        # La etiqueta va primero en importancia aunque vaya al final aqui:
+        # es lo que distingue una casa cara de una que la inmobiliaria
+        # decidio poner en su seleccion Luxury.
+        if self.etiquetas:
+            d["etiquetas"] = self.etiquetas
         return {k: v for k, v in d.items() if v not in (None, "", 0, 0.0, [])}
 
     def ficha(self) -> dict:
@@ -119,6 +129,7 @@ class Filtros:
 
     operacion: str | None = None
     tipo: list[str] = field(default_factory=list)
+    etiqueta: str | None = None
     municipio: str | None = None
     colonia: str | None = None
     recamaras_min: int | None = None
@@ -178,6 +189,7 @@ class Filtros:
             precio_max=precio_max,
             construccion_min=num(d.get("construccion_min")),
             terreno_min=num(d.get("terreno_min")),
+            etiqueta=(d.get("etiqueta") or None),
             texto=(d.get("texto") or None),
             limite=max(1, min(int(d.get("limite") or 5), 12)),
         )
@@ -185,6 +197,8 @@ class Filtros:
     def descripcion_humana(self) -> str:
         """Para explicarle al cliente que fue lo que se busco."""
         p = []
+        if self.etiqueta:
+            p.append(self.etiqueta)
         if self.operacion:
             p.append(self.operacion.lower())
         if self.tipo:

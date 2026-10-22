@@ -149,6 +149,7 @@ class AdaptadorSitio(AdaptadorInventario):
             terreno_m2=_numero(p.get("lotSize")),
             descripcion=p.get("description") or "",
             amenidades=[str(a) for a in (p.get("features") or []) if a],
+            etiquetas=["Luxury"] if p.get("luxury") else [],
             imagenes=[imagen] if imagen else [],
             url=url,
         )

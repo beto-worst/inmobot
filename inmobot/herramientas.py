@@ -50,6 +50,14 @@ HERRAMIENTAS = [
                 },
                 "construccion_min": {"type": "number", "description": "Metros de construccion minimos."},
                 "terreno_min": {"type": "number", "description": "Metros de terreno minimos."},
+                "etiqueta": {
+                    "type": "string",
+                    "description": (
+                        "Seleccion curada de la inmobiliaria, p. ej. 'Luxury'. "
+                        "Usala solo si la persona la nombra. No la inventes: si "
+                        "no sabes que selecciones existen, no uses este campo."
+                    ),
+                },
                 "texto": {
                     "type": "string",
                     "description": "Palabras sueltas que pidio la persona: alberca, un piso, privada.",

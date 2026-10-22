@@ -105,7 +105,20 @@ class AdaptadorInventario(ABC):
                    "Ninguna opcion cumple lo pedido. Esto es lo mas cercano "
                    "que hay; se honesto con el cliente sobre la diferencia.")
 
+        # La etiqueta se suelta hasta el final y nunca en silencio: quien
+        # pide Luxury no quiere "parecidas", y presentarselas sin avisar
+        # seria pasarle gato por liebre.
+        if f.etiqueta:
+            yield (replace(f, etiqueta=None, precio_max=None, recamaras_min=None,
+                           colonia=None, municipio=None),
+                   f"No hay nada en la seleccion {f.etiqueta} con eso. Estas NO "
+                   f"son {f.etiqueta}; dilo explicitamente antes de mostrarlas.")
+
     def _coincide(self, p: Propiedad, f: Filtros) -> bool:
+        if f.etiqueta:
+            buscada = normalizar(f.etiqueta)
+            if buscada not in {normalizar(e) for e in p.etiquetas}:
+                return False
         if f.operacion and normalizar(p.operacion) != normalizar(f.operacion):
             return False
         if f.tipo and normalizar(p.tipo) not in {normalizar(t) for t in f.tipo}:
