@@ -11,7 +11,10 @@ services:
   - type: web
     name: athena
     runtime: python
-    plan: starter          # el gratis se duerme a los 15 min y pierde mensajes
+    # Medio nucleo y 512 MB, unos 7 USD al mes. El plan 'free' se duerme a
+    # los 15 minutos sin trafico, y un mensaje que llega con el servidor
+    # dormido se pierde.
+    plan: 0.5c-512mb
     region: oregon
     branch: main
     buildCommand: pip install -r requirements.txt
