@@ -18,7 +18,7 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from .config import RAIZ
+from .config import DIR_DATOS
 
 # Cuantos turnos de ida y vuelta se conservan. Mas alla de esto una
 # conversacion ya no gana nada y solo cuesta tokens en cada mensaje.
@@ -109,7 +109,7 @@ class Conversaciones:
     """Lo que cada contacto traia platicado, por canal."""
 
     def __init__(self, ruta: Path | None = None):
-        self.ruta = Path(ruta or (RAIZ / "datos" / "athena.db"))
+        self.ruta = Path(ruta or (DIR_DATOS / "athena.db"))
         self.ruta.parent.mkdir(parents=True, exist_ok=True)
         with self._conectar() as con:
             con.executescript(ESQUEMA)

@@ -14,6 +14,11 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent
 DIR_INQUILINOS = RAIZ / "inquilinos"
 
+# Donde viven los prospectos y las conversaciones. En esta computadora, al
+# lado del codigo; en un servidor, en un disco aparte (ATHENA_DATOS), porque
+# cada despliegue reemplaza el codigo y se llevaria la base de datos.
+DIR_DATOS = Path(os.environ.get("ATHENA_DATOS") or (RAIZ / "datos"))
+
 # Por que Opus 5 y no un modelo mas barato: lo que se vende es que la IA
 # entienda a un cliente mexicano escribiendo informal ("algo pa' la familia,
 # no muy caro, por el norte") y que use bien las herramientas. Con

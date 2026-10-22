@@ -16,7 +16,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-from .config import RAIZ
+from .config import DIR_DATOS
 
 ESQUEMA = """
 CREATE TABLE IF NOT EXISTS leads (
@@ -77,7 +77,7 @@ def normalizar_telefono(valor: str | None) -> str:
 
 class BaseDatos:
     def __init__(self, ruta: Path | None = None):
-        self.ruta = Path(ruta or (RAIZ / "datos" / "athena.db"))
+        self.ruta = Path(ruta or (DIR_DATOS / "athena.db"))
         self.ruta.parent.mkdir(parents=True, exist_ok=True)
         self._preparar()
 

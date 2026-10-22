@@ -20,7 +20,7 @@ from pathlib import Path
 
 from .asesores import BuscadorAsesor
 from .basedatos import BaseDatos
-from .config import RAIZ
+from .config import DIR_DATOS
 from .notificaciones import Notificador
 
 
@@ -28,7 +28,7 @@ class RegistroLeads:
     def __init__(self, directorio: Path | None = None,
                  base: BaseDatos | None = None,
                  notificador: Notificador | None = None):
-        self.directorio = Path(directorio or (RAIZ / "datos"))
+        self.directorio = Path(directorio or DIR_DATOS)
         self.directorio.mkdir(parents=True, exist_ok=True)
         self.base = base or BaseDatos()
         self.notificador = notificador or Notificador()

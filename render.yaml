@@ -1,0 +1,58 @@
+# Como se despliega Athena en Render.
+#
+# Render lee este archivo del repo, asi que la configuracion del servidor
+# vive aqui y no en la memoria de nadie: si hay que volver a montarlo, o
+# montar un segundo para otro cliente, es el mismo archivo otra vez.
+#
+# Para usarlo: render.com > New > Blueprint > elegir este repo.
+# Render pedira las claves marcadas abajo; el resto ya esta resuelto.
+
+services:
+  - type: web
+    name: athena
+    runtime: python
+    plan: starter          # el gratis se duerme a los 15 min y pierde mensajes
+    region: oregon
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn inmobot.servidor:app --host 0.0.0.0 --port $PORT
+    # Si /salud deja de contestar, Render reinicia solo.
+    healthCheckPath: /salud
+
+    # Los prospectos y las conversaciones NO pueden vivir junto al codigo:
+    # cada despliegue reemplaza el codigo y se los llevaria. Este disco
+    # sobrevive a los despliegues y a los reinicios.
+    disk:
+      name: datos
+      mountPath: /var/data
+      sizeGB: 1
+
+    envVars:
+      - key: ATHENA_DATOS
+        value: /var/data
+
+      # --- las que hay que teclear al desplegar ---
+      # Motor de IA. console.anthropic.com
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # Para leer el inventario del sitio de RedNorte. El mismo valor que
+      # esta en las variables de Vercel de ese sitio.
+      - key: ATHENA_TOKEN
+        sync: false
+      # Entrada al panel de prospectos de RedNorte.
+      - key: PANEL_REDNORTE
+        sync: false
+
+      # --- opcionales, se pueden dejar vacias al principio ---
+      # Correo desde el que se le avisa al asesor de un prospecto nuevo.
+      - key: SMTP_USUARIO
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      # WhatsApp (Meta). Mientras no existan, el canal simplemente no opera.
+      - key: WHATSAPP_TOKEN
+        sync: false
+      - key: META_APP_SECRET
+        sync: false
+      - key: META_VERIFY_TOKEN
+        sync: false
