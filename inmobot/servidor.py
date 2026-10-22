@@ -102,6 +102,36 @@ async def salud():
     }
 
 
+@app.get("/salud/red")
+async def salud_red():
+    """Si el servidor alcanza a Anthropic, y si no, por que.
+
+    Desplegar a veces falla por red, no por codigo, y desde afuera las dos
+    cosas se ven igual: error 500.
+    """
+    import socket
+    import httpx as _httpx
+
+    reporte: dict = {}
+    try:
+        direcciones = socket.getaddrinfo("api.anthropic.com", 443)
+        reporte["dns"] = sorted({d[4][0] for d in direcciones})
+    except Exception as e:  # noqa: BLE001
+        reporte["dns"] = f"fallo: {type(e).__name__}: {e}"
+
+    for etiqueta, kwargs in (("normal", {}), ("solo_ipv4", {"local_address": "0.0.0.0"})):
+        try:
+            transporte = _httpx.AsyncHTTPTransport(**kwargs)
+            async with _httpx.AsyncClient(timeout=15.0, transport=transporte) as c:
+                r = await c.get("https://api.anthropic.com/v1/models")
+            # 401 es exito para esto: contestó, solo falta la llave.
+            reporte[etiqueta] = f"HTTP {r.status_code}"
+        except Exception as e:  # noqa: BLE001
+            reporte[etiqueta] = f"fallo: {type(e).__name__}: {str(e)[:120]}"
+
+    return reporte
+
+
 @app.get("/api/config")
 async def config(inquilino: str):
     inq = registro.obtener(inquilino)
@@ -143,10 +173,12 @@ async def chat(p: PeticionChat, request: Request):
     except anthropic.RateLimitError:
         raise HTTPException(429, "Demasiadas peticiones, intenta en un momento")
     except Exception as e:  # noqa: BLE001
+        causa = repr(getattr(e, "__cause__", None))[:200]
         print(json.dumps({"evento": "chat_fallo", "inquilino": p.inquilino,
-                          "error": f"{type(e).__name__}: {e}"[:400]}))
+                          "error": f"{type(e).__name__}: {e}"[:400],
+                          "causa": causa}))
         traceback.print_exc()
-        raise HTTPException(500, f"Fallo interno: {type(e).__name__}")
+        raise HTTPException(500, f"Fallo interno: {type(e).__name__} / {causa}")
 
     _sesiones[sesion_id] = {
         "inquilino": p.inquilino,
