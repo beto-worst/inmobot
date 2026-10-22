@@ -9,6 +9,7 @@ import json
 import os
 import secrets
 import time
+import traceback
 from pathlib import Path
 
 import anthropic
@@ -89,8 +90,16 @@ class PeticionChat(BaseModel):
 
 @app.get("/salud")
 async def salud():
-    return {"ok": True, "inquilinos": registro.ids(),
-            "sesiones_activas": len(_sesiones)}
+    return {
+        "ok": True,
+        "inquilinos": registro.ids(),
+        "sesiones_activas": len(_sesiones),
+        # De que commit salio lo que esta corriendo. Al desplegar, saber
+        # esto es la diferencia entre "el arreglo no sirvio" y "el arreglo
+        # todavia no llega".
+        "version": (os.environ.get("RENDER_GIT_COMMIT")
+                    or os.environ.get("RAILWAY_GIT_COMMIT_SHA") or "local")[:7],
+    }
 
 
 @app.get("/api/config")
@@ -133,6 +142,11 @@ async def chat(p: PeticionChat, request: Request):
         raise HTTPException(500, "ANTHROPIC_API_KEY invalida o ausente")
     except anthropic.RateLimitError:
         raise HTTPException(429, "Demasiadas peticiones, intenta en un momento")
+    except Exception as e:  # noqa: BLE001
+        print(json.dumps({"evento": "chat_fallo", "inquilino": p.inquilino,
+                          "error": f"{type(e).__name__}: {e}"[:400]}))
+        traceback.print_exc()
+        raise HTTPException(500, f"Fallo interno: {type(e).__name__}")
 
     _sesiones[sesion_id] = {
         "inquilino": p.inquilino,
