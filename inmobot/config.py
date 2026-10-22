@@ -110,6 +110,16 @@ class RegistroInquilinos:
         return sorted(self._inquilinos)
 
 
+def leer_env(nombre: str, por_defecto: str = "") -> str:
+    """Una variable de entorno, sin el espacio en blanco del copiar y pegar.
+
+    Pegar una llave desde un editor se trae el salto de linea al final.
+    Una cabecera HTTP no puede llevar saltos de linea, asi que la peticion
+    ni siquiera sale y el error que da parece de red. Costo una tarde.
+    """
+    return str(os.environ.get(nombre) or por_defecto).strip()
+
+
 def cargar_dotenv(ruta: Path | None = None) -> None:
     """Lee .env sin depender de python-dotenv.
 

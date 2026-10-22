@@ -16,6 +16,8 @@ import time
 
 import httpx
 
+from .config import leer_env
+
 
 class BuscadorAsesor:
     """Consulta el asesor de una propiedad, con cache.
@@ -61,7 +63,7 @@ class BuscadorAsesor:
     async def _consultar(self, codigo: str) -> dict | None:
         cabeceras = {"Accept": "application/json"}
         if self.var_token:
-            token = os.environ.get(self.var_token, "")
+            token = leer_env(self.var_token)
             if not token:
                 return None
             cabeceras["Authorization"] = f"Bearer {token}"

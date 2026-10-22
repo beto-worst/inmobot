@@ -20,7 +20,7 @@ from fastapi.responses import (FileResponse, JSONResponse, PlainTextResponse,
 from pydantic import BaseModel, Field
 
 from .agente import Agente, ResultadoStream
-from .config import RAIZ, RegistroInquilinos, cargar_dotenv
+from .config import RAIZ, RegistroInquilinos, cargar_dotenv, leer_env
 from .conversaciones import Conversaciones, esta_pausada
 from .leads import RegistroLeads
 from .whatsapp import (buscar_inquilino, canal_de, firma_valida, leer_entrantes)
@@ -57,13 +57,14 @@ _agente: Agente | None = None
 def obtener_agente() -> Agente:
     global _agente
     if _agente is None:
-        if not os.environ.get("ANTHROPIC_API_KEY"):
+        if not leer_env("ANTHROPIC_API_KEY"):
             raise HTTPException(
                 503,
                 "Falta ANTHROPIC_API_KEY. Copia .env.example a .env, pon tu "
                 "llave de https://console.anthropic.com y reinicia el servidor.",
             )
-        _agente = Agente(anthropic.AsyncAnthropic(), leads)
+        _agente = Agente(
+            anthropic.AsyncAnthropic(api_key=leer_env("ANTHROPIC_API_KEY")), leads)
     return _agente
 
 # Sesiones en memoria. Suficiente para un proceso; cuando tengas varios
@@ -178,7 +179,10 @@ async def chat(p: PeticionChat, request: Request):
                           "error": f"{type(e).__name__}: {e}"[:400],
                           "causa": causa}))
         traceback.print_exc()
-        raise HTTPException(500, f"Fallo interno: {type(e).__name__} / {causa}")
+        # La causa va al log y NO a la respuesta: la primera version de
+        # esto devolvia el detalle al cliente y filtro la llave de la API
+        # en un endpoint publico.
+        raise HTTPException(500, f"Fallo interno: {type(e).__name__}")
 
     _sesiones[sesion_id] = {
         "inquilino": p.inquilino,
@@ -326,7 +330,7 @@ def _autorizar_panel(inquilino: str, token: str):
     # historial, aunque despues se borre. `token_panel` se sigue aceptando
     # para pruebas locales.
     variable = contacto.get("token_panel_env")
-    esperado = os.environ.get(variable, "") if variable else contacto.get("token_panel", "")
+    esperado = leer_env(variable) if variable else str(contacto.get("token_panel", "")).strip()
 
     if not esperado:
         raise HTTPException(
@@ -397,7 +401,7 @@ async def whatsapp_verificar(request: Request):
     para comprobar que de este lado hay alguien que conoce el token.
     """
     p = request.query_params
-    esperado = os.environ.get("META_VERIFY_TOKEN", "")
+    esperado = leer_env("META_VERIFY_TOKEN")
     if not esperado:
         raise HTTPException(503, "Falta META_VERIFY_TOKEN en el .env")
     if p.get("hub.mode") == "subscribe" and p.get("hub.verify_token") == esperado:
@@ -415,7 +419,7 @@ async def whatsapp_entrada(request: Request, tareas: BackgroundTasks):
     """
     cuerpo = await request.body()
     if not firma_valida(cuerpo, request.headers.get("x-hub-signature-256", ""),
-                        os.environ.get("META_APP_SECRET", "")):
+                        leer_env("META_APP_SECRET")):
         raise HTTPException(403, "Firma invalida")
 
     try:

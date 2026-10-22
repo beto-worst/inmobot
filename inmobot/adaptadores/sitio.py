@@ -41,6 +41,7 @@ import os
 
 import httpx
 
+from ..config import leer_env
 from ..modelos import Propiedad
 from .base import AdaptadorInventario
 from .nocnok import ErrorInventario
@@ -73,7 +74,7 @@ class AdaptadorSitio(AdaptadorInventario):
 
     @property
     def token(self) -> str:
-        valor = os.environ.get(self.var_token, "")
+        valor = leer_env(self.var_token)
         if not valor:
             raise ErrorInventario(
                 f"Falta la variable de entorno {self.var_token}. "

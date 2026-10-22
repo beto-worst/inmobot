@@ -29,6 +29,8 @@ from dataclasses import dataclass, field
 
 import httpx
 
+from .config import leer_env
+
 # WhatsApp corta los mensajes de texto en 4096 caracteres.
 LARGO_MAXIMO = 4000
 
@@ -155,14 +157,14 @@ class CanalWhatsApp:
 
     @property
     def activo(self) -> bool:
-        return bool(self.telefono_id and os.environ.get(self.var_token))
+        return bool(self.telefono_id and leer_env(self.var_token))
 
     @property
     def _url(self) -> str:
         return f"https://graph.facebook.com/{self.version}/{self.telefono_id}/messages"
 
     def _cabeceras(self) -> dict:
-        return {"Authorization": "Bearer " + os.environ.get(self.var_token, ""),
+        return {"Authorization": "Bearer " + leer_env(self.var_token),
                 "Content-Type": "application/json"}
 
     async def enviar(self, para: str, texto: str) -> str:
