@@ -59,6 +59,10 @@ class Inquilino:
     # notificaciones.py. Las contrasenas van en .env, nunca aqui: este
     # archivo se sube a git.
     notificaciones: dict = field(default_factory=dict)
+    # Empujones cortos al telefono del dueno cuando alguien empieza a
+    # hablar con el asistente. Distinto del aviso al asesor, que lleva la
+    # ficha del prospecto. Ver notificaciones.py.
+    avisos: dict = field(default_factory=dict)
     # De donde se saca el asesor asignado a cada propiedad, para avisarle
     # a el y no a un buzon general. Ver asesores.py.
     asesor_por_propiedad: dict = field(default_factory=dict)

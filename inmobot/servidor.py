@@ -23,6 +23,7 @@ from .agente import Agente, ResultadoStream
 from .config import RAIZ, RegistroInquilinos, cargar_dotenv, leer_env
 from .conversaciones import Conversaciones, esta_pausada
 from .leads import RegistroLeads
+from .notificaciones import Notificador
 from .whatsapp import (buscar_inquilino, canal_de, firma_valida, leer_entrantes)
 
 cargar_dotenv()
@@ -47,6 +48,7 @@ leads = RegistroLeads()
 # Las conversaciones del sitio viven en memoria; las de WhatsApp no pueden:
 # el cliente contesta tres horas despues y el servidor ya se reinicio.
 conversaciones = Conversaciones()
+notificador = Notificador()
 
 # El cliente se construye en la primera peticion de chat, no al arrancar.
 # Asi el servidor levanta, sirve el widget y responde /api/config aunque
@@ -460,6 +462,8 @@ async def _atender_whatsapp(m) -> None:
             return
 
         conv = await conversaciones.abrir("whatsapp", m.de, inq.id, m.nombre)
+        # Solo en el primer mensaje: avisar en cada turno seria un acoso.
+        es_nueva = not conv["historial"]
         # Si un asesor entro a contestar a mano, la IA se calla en ese chat.
         if esta_pausada(conv):
             return
@@ -480,9 +484,28 @@ async def _atender_whatsapp(m) -> None:
         print(json.dumps({"evento": "whatsapp_contestado", "inquilino": inq.id,
                           "de": m.de, "envio": resultado,
                           "costo_usd": round(respuesta.costo_usd, 5)}))
+
+        if es_nueva:
+            quien = m.nombre or ("+" + m.de)
+            await _avisar(inq, f"{quien} escribio por WhatsApp",
+                          f"{m.texto[:160]}\n\nAthena: {respuesta.texto[:160]}")
     except Exception as e:  # noqa: BLE001 - una falla no puede tumbar el canal
         print(json.dumps({"evento": "whatsapp_error", "de": getattr(m, "de", ""),
                           "error": f"{type(e).__name__}: {e}"}))
+
+
+async def _avisar(inquilino, titulo: str, texto: str) -> None:
+    """Empujon al telefono del dueno. Si falla, se anota y ya.
+
+    Un aviso que no sale no puede tumbar una conversacion que si funciono.
+    """
+    try:
+        resultado = await notificador.aviso_push(inquilino, titulo, texto)
+        if not resultado.startswith(("ok", "sin push")):
+            print(json.dumps({"evento": "aviso_fallo", "detalle": resultado}))
+    except Exception as e:  # noqa: BLE001
+        print(json.dumps({"evento": "aviso_fallo",
+                          "detalle": f"{type(e).__name__}: {e}"[:200]}))
 
 
 async def _guardar_conversacion_web(inquilino: str, sesion: str,
@@ -493,8 +516,16 @@ async def _guardar_conversacion_web(inquilino: str, sesion: str,
     igual recibe lo suyo y el problema queda en el log.
     """
     try:
-        await conversaciones.abrir("web", sesion, inquilino)
+        estado = await conversaciones.abrir("web", sesion, inquilino)
+        es_nueva = not estado["historial"]
         await conversaciones.guardar("web", sesion, historial)
+        if es_nueva:
+            inq = registro.obtener(inquilino)
+            primero = next((m.get("content") for m in historial
+                            if m.get("role") == "user"), "")
+            if inq:
+                await _avisar(inq, "Alguien esta chateando en el sitio",
+                              str(primero)[:200])
     except Exception as e:  # noqa: BLE001
         print(json.dumps({"evento": "conversacion_no_guardada",
                           "error": f"{type(e).__name__}: {e}"[:200]}))

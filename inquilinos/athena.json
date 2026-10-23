@@ -39,5 +39,12 @@
   "limites": {
     "mensajes_por_ip": 25,
     "mensajes_por_dia": 300
+  },
+  "avisos": {
+    "push": {
+      "servicio": "ntfy",
+      "tema_env": "NTFY_TEMA",
+      "servidor": "https://ntfy.sh"
+    }
   }
 }

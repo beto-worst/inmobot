@@ -129,6 +129,51 @@ class Notificador:
 
         return "; ".join(resultados) if resultados else "sin canales configurados"
 
+    async def aviso_push(self, inquilino, titulo: str, texto: str) -> str:
+        """Un empujon corto al telefono del dueno. No es el aviso al asesor.
+
+        El aviso al asesor lleva la ficha completa del prospecto y se manda
+        cuando ya hay datos. Esto es otra cosa: saber que alguien esta
+        hablando con el asistente AHORA, aunque todavia no diga ni su
+        nombre. Sirve para asomarse, o para entrar a contestar tu mismo.
+        """
+        cfg = (getattr(inquilino, "avisos", None) or {}).get("push") or {}
+        if not cfg:
+            return "sin push configurado"
+        return await self._push(cfg, titulo, texto)
+
+    async def _push(self, cfg: dict, titulo: str, texto: str) -> str:
+        """ntfy por defecto; cualquier otro servicio con una url.
+
+        ntfy no pide cuenta ni llaves: se instala la app, uno se suscribe a
+        un tema y lo que se publique en ese tema llega al telefono. El tema
+        ES la contrasena -quien lo sepa recibe los avisos-, por eso sale de
+        una variable de entorno y nunca del JSON del inquilino, que va a
+        git.
+        """
+        url = cfg.get("url", "")
+        if not url:
+            variable = cfg.get("tema_env", "NTFY_TEMA")
+            tema = os.environ.get(variable, "").strip()
+            if not tema:
+                return f"fallo: falta {variable}"
+            url = cfg.get("servidor", "https://ntfy.sh").rstrip("/") + "/" + tema
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as cliente:
+                if cfg.get("json"):
+                    r = await cliente.post(url, json={"titulo": titulo,
+                                                      "texto": texto})
+                else:
+                    r = await cliente.post(
+                        url, content=texto.encode("utf-8"),
+                        headers={"Title": titulo.encode("utf-8").decode("latin-1",
+                                                                        "ignore"),
+                                 "Tags": "speech_balloon"})
+        except httpx.HTTPError as e:
+            return f"fallo: {type(e).__name__}"
+        return "ok" if r.status_code < 300 else f"fallo: {r.status_code}"
+
     async def _email(self, cfg: dict, asunto: str, cuerpo: str,
                      destinos_extra: list[str] | None = None) -> str:
         destinos = cfg.get("para") or []
