@@ -120,7 +120,7 @@
 <div id="acceso" class="acceso">
   <h1>Prospectos</h1>
   <p>Entra con la clave que te dio tu administrador.</p>
-  <label for="inq">Inmobiliaria</label>
+  <label for="inq">Negocio</label>
   <input id="inq" value="rednorte" autocomplete="off">
   <label for="tok">Clave de acceso</label>
   <input id="tok" type="password" autocomplete="current-password">
@@ -130,8 +130,11 @@
 
 <div id="panel" class="oculto">
   <header>
-    <div class="envoltura" style="padding:0">
-      <div class="marca">Prospectos <span id="deQuien"></span></div>
+    <div class="envoltura" style="padding:0;width:100%">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="marca">Prospectos <span id="deQuien"></span></div>
+        <button class="boton-chico" id="salir" style="margin-left:auto">Salir</button>
+      </div>
     </div>
   </header>
   <div class="envoltura">
@@ -216,7 +219,7 @@
       var msg = err.status === 401
         ? "Clave incorrecta."
         : err.status === 404
-          ? "No existe esa inmobiliaria."
+          ? "No existe ese negocio."
           : "No pude conectarme: " + err.message;
       $("errorAcceso").textContent = msg;
       $("errorAcceso").classList.remove("oculto");
@@ -449,6 +452,21 @@
     temporizador = setTimeout(function () { cargar().catch(function () {}); }, 300);
   }
 
+  // Sin esto se queda uno atorado: la sesion guardada vuelve a entrar sola
+  // al mismo inquilino y no hay forma de cambiarse ni de cerrar.
+  function salir() {
+    try { sessionStorage.removeItem("athena_panel"); } catch (e) { /* ni modo */ }
+    inquilino = "";
+    token = "";
+    $("tok").value = "";
+    clearTimeout(temporizador);
+    $("panel").classList.add("oculto");
+    $("acceso").classList.remove("oculto");
+    mostrarVista("prospectos");
+    $("inq").focus();
+  }
+
+  $("salir").addEventListener("click", salir);
   $("pestanaProspectos").addEventListener("click", function () { mostrarVista("prospectos"); });
   $("pestanaCharlas").addEventListener("click", function () { mostrarVista("charlas"); });
   $("entrar").addEventListener("click", entrar);
