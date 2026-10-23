@@ -519,6 +519,61 @@ async def ver_conversacion(canal: str, contacto: str, inquilino: str,
     return charla
 
 
+@app.get("/api/whatsapp/diagnostico")
+async def diagnostico_whatsapp(inquilino: str, token: str = "",
+                               telefono_id: str = ""):
+    """Que le falta al token de WhatsApp, dicho por Meta y no por nosotros.
+
+    Un envio que falla con 403 puede ser el token equivocado, el token bueno
+    sin el activo asignado, o permisos incompletos. Desde fuera los tres se
+    ven igual. Esto le pregunta a Meta directamente.
+    """
+    _autorizar_panel(inquilino, token)
+
+    import httpx as _httpx
+    from .whatsapp import _ids as _ids_whatsapp
+
+    clave = leer_env("WHATSAPP_TOKEN")
+    reporte: dict = {
+        "token_configurado": bool(clave),
+        "largo_del_token": len(clave),
+        "numeros": {},
+    }
+    if not clave:
+        reporte["conclusion"] = "Falta WHATSAPP_TOKEN en el servidor."
+        return reporte
+
+    inq = registro.obtener(inquilino)
+    ids = [telefono_id] if telefono_id else _ids_whatsapp(
+        (inq.canales or {}).get("whatsapp") or {})
+
+    async with _httpx.AsyncClient(timeout=20.0) as cliente:
+        for numero in ids:
+            url = f"https://graph.facebook.com/v25.0/{numero}"
+            try:
+                r = await cliente.get(
+                    url, params={"fields": "display_phone_number,verified_name"},
+                    headers={"Authorization": "Bearer " + clave})
+            except _httpx.HTTPError as e:
+                reporte["numeros"][numero] = f"no se pudo consultar: {type(e).__name__}"
+                continue
+            if r.status_code == 200:
+                datos = r.json()
+                reporte["numeros"][numero] = {
+                    "acceso": "si",
+                    "numero": datos.get("display_phone_number"),
+                    "nombre": datos.get("verified_name"),
+                }
+            else:
+                error = (r.json() or {}).get("error", {}) if r.text else {}
+                reporte["numeros"][numero] = {
+                    "acceso": "no",
+                    "codigo": error.get("code"),
+                    "mensaje": str(error.get("message"))[:200],
+                }
+    return reporte
+
+
 class PeticionPausa(BaseModel):
     contacto: str
     minutos: int = 120
