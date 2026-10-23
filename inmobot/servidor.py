@@ -441,7 +441,7 @@ async def _atender_whatsapp(m) -> None:
                               "telefono_id": m.telefono_id}))
             return
 
-        canal = canal_de(inq)
+        canal = canal_de(inq, m.telefono_id)
         # Meta reintenta; sin esto el cliente recibe la misma respuesta dos veces.
         if await conversaciones.es_repetido(m.id):
             return

@@ -149,9 +149,11 @@ def partir(texto: str, largo: int = LARGO_MAXIMO) -> list[str]:
 class CanalWhatsApp:
     """Lo que hace falta para contestarle a un cliente por WhatsApp."""
 
-    def __init__(self, config: dict | None = None):
+    def __init__(self, config: dict | None = None, telefono_id: str = ""):
         config = config or {}
-        self.telefono_id = str(config.get("telefono_id", ""))
+        # El id puede venir suelto o como lista. Se contesta por el numero
+        # al que escribieron, que es el que llega en telefono_id.
+        self.telefono_id = str(telefono_id or _primer_id(config))
         self.var_token = config.get("token_env", "WHATSAPP_TOKEN")
         self.version = config.get("version", "v21.0")
 
@@ -203,8 +205,21 @@ class CanalWhatsApp:
             pass
 
 
-def canal_de(inquilino) -> CanalWhatsApp:
-    return CanalWhatsApp((inquilino.canales or {}).get("whatsapp") or {})
+def _ids(config: dict) -> list[str]:
+    bruto = (config or {}).get("telefono_id")
+    if isinstance(bruto, (list, tuple)):
+        return [str(x) for x in bruto if x]
+    return [str(bruto)] if bruto else []
+
+
+def _primer_id(config: dict) -> str:
+    ids = _ids(config)
+    return ids[0] if ids else ""
+
+
+def canal_de(inquilino, telefono_id: str = "") -> CanalWhatsApp:
+    return CanalWhatsApp((inquilino.canales or {}).get("whatsapp") or {},
+                         telefono_id=telefono_id)
 
 
 def buscar_inquilino(registro, telefono_id: str):
@@ -212,6 +227,6 @@ def buscar_inquilino(registro, telefono_id: str):
     for id_inq in registro.ids():
         inq = registro.obtener(id_inq)
         config = (inq.canales or {}).get("whatsapp") or {}
-        if str(config.get("telefono_id", "")) == str(telefono_id):
+        if str(telefono_id) in _ids(config):
             return inq
     return None
