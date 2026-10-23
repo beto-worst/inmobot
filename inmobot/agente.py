@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 import anthropic
 
 from .config import Inquilino
-from .herramientas import HERRAMIENTAS, ejecutar
+from .herramientas import ejecutar, herramientas_para
 from .prompt import construir_system
 
 # Tope de vueltas modelo->herramienta->modelo en un solo mensaje del usuario.
@@ -139,7 +139,7 @@ class Agente:
                     "text": construir_system(inquilino),
                     "cache_control": {"type": "ephemeral"},
                 }],
-                tools=HERRAMIENTAS,
+                tools=herramientas_para(inquilino),
                 messages=mensajes,
             ) as flujo:
                 # text_stream entrega solo el texto visible; los bloques de

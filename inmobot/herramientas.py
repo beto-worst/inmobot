@@ -202,3 +202,17 @@ async def ejecutar(nombre: str, entrada: dict, *, adaptador, inquilino,
 
 def _json(obj) -> str:
     return json.dumps(obj, ensure_ascii=False, default=str)
+
+
+def herramientas_para(inquilino) -> list[dict]:
+    """Las herramientas que tienen sentido para este inquilino.
+
+    A un negocio sin catalogo no se le ofrece buscar_propiedades: una
+    herramienta disponible es una invitacion a usarla, y el modelo
+    terminaria buscando en un inventario vacio y explicandole al cliente
+    que no encontro nada, en vez de contestarle con lo que si sabe.
+    """
+    if (inquilino.adaptador or {}).get("tipo") == "ninguno":
+        sin_catalogo = {"registrar_lead"}
+        return [h for h in HERRAMIENTAS if h["name"] in sin_catalogo]
+    return HERRAMIENTAS

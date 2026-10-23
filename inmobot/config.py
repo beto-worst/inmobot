@@ -43,6 +43,14 @@ class Inquilino:
     modelo: str = MODELO_POR_DEFECTO
     esfuerzo: str = ESFUERZO_POR_DEFECTO
     zona_operacion: str = ""
+    # Que vende el negocio, en una frase: "una agencia inmobiliaria",
+    # "una aseguradora", "un servicio de asistentes con inteligencia
+    # artificial". Define como se presenta el asistente.
+    giro: str = "una agencia inmobiliaria"
+    # Para negocios sin catalogo: todo lo que el asistente sabe -servicios,
+    # precios, como se contrata- va aqui, en texto. Es su unica fuente, y
+    # por eso lo que no este escrito aqui no existe para el.
+    conocimiento: str = ""
     moneda: str = "MXN"
     personalidad: str = ""
     reglas: list[str] = field(default_factory=list)

@@ -6,6 +6,7 @@ clase, importala aqui y agregala al diccionario. Nada mas del sistema cambia.
 from .archivo import AdaptadorArchivo
 from .base import AdaptadorInventario
 from .demo import AdaptadorDemo
+from .ninguno import AdaptadorNinguno
 from .nocnok import AdaptadorNocnok
 from .sitio import AdaptadorSitio
 
@@ -14,6 +15,7 @@ ADAPTADORES = {
     "nocnok": AdaptadorNocnok,
     "archivo": AdaptadorArchivo,
     "sitio": AdaptadorSitio,
+    "ninguno": AdaptadorNinguno,
 }
 
 

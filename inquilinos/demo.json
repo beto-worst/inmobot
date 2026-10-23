@@ -25,8 +25,7 @@
   "canales": {
     "whatsapp": {
       "telefono_id": [
-        "1414924791700794",
-        "1351619648040967"
+        "1414924791700794"
       ],
       "token_env": "WHATSAPP_TOKEN",
       "version": "v25.0"
