@@ -189,6 +189,7 @@ async def chat(p: PeticionChat, request: Request):
         "historial": _recortar(historial),
         "visto": time.time(),
     }
+    await _guardar_conversacion_web(p.inquilino, sesion_id, historial)
 
     return {
         "sesion": sesion_id,
@@ -258,6 +259,8 @@ async def chat_stream(p: PeticionChat, request: Request):
                 "historial": _recortar(buzon.historial),
                 "visto": time.time(),
             }
+            await _guardar_conversacion_web(p.inquilino, sesion_id,
+                                            buzon.historial)
 
     return StreamingResponse(
         eventos(),
@@ -480,6 +483,40 @@ async def _atender_whatsapp(m) -> None:
     except Exception as e:  # noqa: BLE001 - una falla no puede tumbar el canal
         print(json.dumps({"evento": "whatsapp_error", "de": getattr(m, "de", ""),
                           "error": f"{type(e).__name__}: {e}"}))
+
+
+async def _guardar_conversacion_web(inquilino: str, sesion: str,
+                                    historial: list) -> None:
+    """Deja el chat del sitio en la base, igual que los de WhatsApp.
+
+    Nunca tumba una respuesta ya generada: si falla el guardado, el cliente
+    igual recibe lo suyo y el problema queda en el log.
+    """
+    try:
+        await conversaciones.abrir("web", sesion, inquilino)
+        await conversaciones.guardar("web", sesion, historial)
+    except Exception as e:  # noqa: BLE001
+        print(json.dumps({"evento": "conversacion_no_guardada",
+                          "error": f"{type(e).__name__}: {e}"[:200]}))
+
+
+@app.get("/api/conversaciones")
+async def ver_conversaciones(inquilino: str, token: str = "", canal: str = "",
+                             limite: int = 50):
+    """Las conversaciones del inquilino, de la mas reciente a la mas vieja."""
+    _autorizar_panel(inquilino, token)
+    return {"conversaciones": conversaciones.listar(inquilino=inquilino,
+                                                    canal=canal, limite=limite)}
+
+
+@app.get("/api/conversaciones/{canal}/{contacto}")
+async def ver_conversacion(canal: str, contacto: str, inquilino: str,
+                           token: str = ""):
+    _autorizar_panel(inquilino, token)
+    charla = conversaciones.leer(canal, contacto, inquilino=inquilino)
+    if charla is None:
+        raise HTTPException(404, "Conversacion no encontrada")
+    return charla
 
 
 class PeticionPausa(BaseModel):

@@ -74,6 +74,45 @@
   .acciones select{width:auto;padding:9px 12px;font-size:14px}
   .vacio{text-align:center;color:var(--suave);padding:50px 20px}
   .oculto{display:none}
+
+  /* Pestanas */
+  .pestanas{display:flex;gap:6px;margin:0 0 18px}
+  .pestanas button{background:none;border:0;padding:10px 16px;border-radius:999px;
+    font:inherit;font-weight:600;color:var(--suave);cursor:pointer}
+  .pestanas button.activa{background:var(--acento);color:#fff}
+
+  /* Conversaciones */
+  .charla-fila{display:flex;align-items:center;gap:12px;padding:14px 16px;
+    background:var(--papel);border:1px solid var(--linea);border-radius:12px;
+    margin-bottom:8px;cursor:pointer}
+  .charla-fila:hover{border-color:var(--acento)}
+  .canal{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+    border-radius:999px;padding:4px 10px;flex:none}
+  .canal.web{background:#E6EDEA;color:#1F5D4C}
+  .canal.whatsapp{background:#DCF6E5;color:#12694A}
+  .charla-fila .quien{font-weight:600}
+  .charla-fila .meta{font-size:13px;color:var(--suave);margin-top:2px}
+  .charla-fila .cuando{margin-left:auto;font-size:13px;color:var(--suave);
+    text-align:right;flex:none}
+
+  .volver{background:none;border:0;font:inherit;color:var(--acento);
+    cursor:pointer;padding:0;margin-bottom:12px;font-weight:600}
+  .hilo{background:var(--papel);border:1px solid var(--linea);border-radius:14px;
+    padding:18px;display:flex;flex-direction:column;gap:10px}
+  .burbuja{max-width:82%;padding:11px 15px;border-radius:16px;line-height:1.45;
+    white-space:pre-wrap;word-wrap:break-word}
+  .burbuja.cliente{align-self:flex-start;background:#EFEEE9;color:var(--tinta);
+    border-bottom-left-radius:5px}
+  .burbuja.athena{align-self:flex-end;background:#E6EDEA;color:var(--tinta);
+    border-bottom-right-radius:5px}
+  .burbuja small{display:block;font-size:11px;color:var(--suave);
+    margin-bottom:3px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  .barra-charla{display:flex;align-items:center;gap:10px;margin-bottom:12px;
+    flex-wrap:wrap}
+  .barra-charla .titulo{font-weight:600;font-size:18px}
+  .boton-chico{background:var(--papel);border:1px solid var(--linea);
+    border-radius:8px;padding:7px 12px;font:inherit;font-size:14px;cursor:pointer}
+  .boton-chico:hover{border-color:var(--acento);color:var(--acento)}
 </style>
 </head>
 <body>
@@ -96,6 +135,12 @@
     </div>
   </header>
   <div class="envoltura">
+    <div class="pestanas">
+      <button id="pestanaProspectos" class="activa">Prospectos</button>
+      <button id="pestanaCharlas">Conversaciones</button>
+    </div>
+
+    <div id="vistaProspectos">
     <div class="cifras" id="cifras"></div>
     <div class="filtros">
       <input id="buscar" placeholder="Buscar por nombre o teléfono...">
@@ -109,6 +154,12 @@
       </select>
     </div>
     <div id="lista"></div>
+    </div>
+
+    <div id="vistaCharlas" class="oculto">
+      <div id="listaCharlas"></div>
+      <div id="detalleCharla" class="oculto"></div>
+    </div>
   </div>
 </div>
 
@@ -293,11 +344,113 @@
     });
   }
 
+  // ---------- conversaciones ----------
+  function mostrarVista(cual) {
+    var esCharlas = cual === "charlas";
+    $("vistaProspectos").classList.toggle("oculto", esCharlas);
+    $("vistaCharlas").classList.toggle("oculto", !esCharlas);
+    $("pestanaProspectos").classList.toggle("activa", !esCharlas);
+    $("pestanaCharlas").classList.toggle("activa", esCharlas);
+    if (esCharlas) cargarCharlas();
+  }
+
+  function cargarCharlas() {
+    $("detalleCharla").classList.add("oculto");
+    $("listaCharlas").classList.remove("oculto");
+    var p = new URLSearchParams({ inquilino: inquilino, token: token, limite: "100" });
+    return pedir("/api/conversaciones?" + p.toString()).then(function (d) {
+      pintarCharlas(d.conversaciones || []);
+    }).catch(function (err) {
+      $("listaCharlas").innerHTML = '<div class="vacio">' + texto(err.message) + "</div>";
+    });
+  }
+
+  function pintarCharlas(charlas) {
+    if (!charlas.length) {
+      $("listaCharlas").innerHTML =
+        '<div class="vacio">Todavia no hay conversaciones.</div>';
+      return;
+    }
+    $("listaCharlas").innerHTML = charlas.map(function (c) {
+      var quien = c.nombre || c.contacto;
+      // Las del sitio no tienen nombre: su "contacto" es un id de sesion,
+      // que no le dice nada a nadie. Mejor decir de donde vino.
+      if (c.canal === "web" && !c.nombre) quien = "Visitante del sitio";
+      var pausada = c.pausada_hasta && new Date(c.pausada_hasta) > new Date();
+      return '<div class="charla-fila" data-canal="' + texto(c.canal) +
+        '" data-contacto="' + texto(c.contacto) + '">' +
+        '<span class="canal ' + texto(c.canal) + '">' + texto(c.canal) + "</span>" +
+        "<div><div class='quien'>" + texto(quien) +
+          (pausada ? " · en pausa" : "") + "</div>" +
+          "<div class='meta'>" + (c.turnos || 0) + " mensajes</div></div>" +
+        '<div class="cuando">' + fecha(c.actualizada) + "</div></div>";
+    }).join("");
+
+    Array.prototype.forEach.call(
+      $("listaCharlas").querySelectorAll(".charla-fila"), function (fila) {
+        fila.addEventListener("click", function () {
+          abrirCharla(fila.getAttribute("data-canal"),
+                      fila.getAttribute("data-contacto"));
+        });
+      });
+  }
+
+  function abrirCharla(canal, contacto) {
+    var p = new URLSearchParams({ inquilino: inquilino, token: token });
+    pedir("/api/conversaciones/" + encodeURIComponent(canal) + "/" +
+          encodeURIComponent(contacto) + "?" + p.toString())
+      .then(function (c) {
+        $("listaCharlas").classList.add("oculto");
+        $("detalleCharla").classList.remove("oculto");
+
+        var quien = c.nombre || c.contacto;
+        if (c.canal === "web" && !c.nombre) quien = "Visitante del sitio";
+        var pausada = c.pausada_hasta && new Date(c.pausada_hasta) > new Date();
+
+        var burbujas = (c.historial || []).map(function (m) {
+          var mio = m.role === "assistant";
+          return '<div class="burbuja ' + (mio ? "athena" : "cliente") + '">' +
+                 "<small>" + (mio ? "Athena" : texto(quien)) + "</small>" +
+                 texto(m.content) + "</div>";
+        }).join("");
+
+        $("detalleCharla").innerHTML =
+          '<button class="volver" id="volverLista">&larr; Todas las conversaciones</button>' +
+          '<div class="barra-charla">' +
+            '<span class="canal ' + texto(c.canal) + '">' + texto(c.canal) + "</span>" +
+            '<span class="titulo">' + texto(quien) + "</span>" +
+            // Si un humano va a contestar, la IA se calla en ese chat.
+            // Dos respuestas a la vez se ven peor que ninguna.
+            '<button class="boton-chico" id="pausa">' +
+              (pausada ? "Reanudar la IA" : "Pausar la IA 2 horas") + "</button>" +
+          "</div>" +
+          '<div class="hilo">' +
+            (burbujas || '<div class="vacio">Sin mensajes guardados.</div>') +
+          "</div>";
+
+        $("volverLista").addEventListener("click", cargarCharlas);
+        $("pausa").addEventListener("click", function () {
+          var ruta = pausada ? "/api/conversaciones/reanudar"
+                             : "/api/conversaciones/pausar";
+          var q = new URLSearchParams({ inquilino: inquilino, token: token });
+          pedir(ruta + "?" + q.toString(), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ canal: c.canal, contacto: c.contacto, minutos: 120 })
+          }).then(function () { abrirCharla(canal, contacto); })
+            .catch(function (err) { alert("No se pudo: " + err.message); });
+        });
+      })
+      .catch(function (err) { alert("No pude abrir la conversacion: " + err.message); });
+  }
+
   function conRetraso() {
     clearTimeout(temporizador);
     temporizador = setTimeout(function () { cargar().catch(function () {}); }, 300);
   }
 
+  $("pestanaProspectos").addEventListener("click", function () { mostrarVista("prospectos"); });
+  $("pestanaCharlas").addEventListener("click", function () { mostrarVista("charlas"); });
   $("entrar").addEventListener("click", entrar);
   $("tok").addEventListener("keydown", function (e) { if (e.key === "Enter") entrar(); });
   $("buscar").addEventListener("input", conRetraso);

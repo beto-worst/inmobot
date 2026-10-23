@@ -220,17 +220,47 @@ class Conversaciones:
                 "UPDATE conversaciones SET pausada_hasta = NULL WHERE canal = ? AND contacto = ?",
                 (canal, contacto))
 
-    def listar(self, canal: str = "", limite: int = 50) -> list[dict]:
+    def listar(self, inquilino: str = "", canal: str = "",
+               limite: int = 50) -> list[dict]:
         consulta = ("SELECT canal, contacto, inquilino, nombre, ultimo_entrante,"
-                    " pausada_hasta, actualizada FROM conversaciones")
-        parametros: list = []
+                    " pausada_hasta, actualizada,"
+                    # Cuantos turnos lleva, para distinguir de un vistazo al
+                    # que solo dijo "hola" del que platico diez minutos.
+                    " json_array_length(historial) AS turnos"
+                    " FROM conversaciones")
+        condiciones, parametros = [], []
+        if inquilino:
+            condiciones.append("inquilino = ?")
+            parametros.append(inquilino)
         if canal:
-            consulta += " WHERE canal = ?"
+            condiciones.append("canal = ?")
             parametros.append(canal)
+        if condiciones:
+            consulta += " WHERE " + " AND ".join(condiciones)
         consulta += " ORDER BY actualizada DESC LIMIT ?"
         parametros.append(max(1, min(limite, 200)))
         with self._conectar() as con:
             return [dict(f) for f in con.execute(consulta, parametros).fetchall()]
+
+    def leer(self, canal: str, contacto: str, inquilino: str = "") -> dict | None:
+        """Una conversacion completa, para leerla en el panel."""
+        consulta = ("SELECT canal, contacto, inquilino, nombre, historial,"
+                    " ultimo_entrante, pausada_hasta, actualizada"
+                    " FROM conversaciones WHERE canal = ? AND contacto = ?")
+        parametros = [canal, contacto]
+        if inquilino:
+            consulta += " AND inquilino = ?"
+            parametros.append(inquilino)
+        with self._conectar() as con:
+            fila = con.execute(consulta, parametros).fetchone()
+        if fila is None:
+            return None
+        datos = dict(fila)
+        try:
+            datos["historial"] = json.loads(datos["historial"]) or []
+        except json.JSONDecodeError:
+            datos["historial"] = []
+        return datos
 
 
 def esta_pausada(conversacion: dict) -> bool:
