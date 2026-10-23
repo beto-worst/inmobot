@@ -521,7 +521,7 @@ async def ver_conversacion(canal: str, contacto: str, inquilino: str,
 
 @app.get("/api/whatsapp/diagnostico")
 async def diagnostico_whatsapp(inquilino: str, token: str = "",
-                               telefono_id: str = ""):
+                               telefono_id: str = "", waba_id: str = ""):
     """Que le falta al token de WhatsApp, dicho por Meta y no por nosotros.
 
     Un envio que falla con 403 puede ser el token equivocado, el token bueno
@@ -571,6 +571,28 @@ async def diagnostico_whatsapp(inquilino: str, token: str = "",
                     "codigo": error.get("code"),
                     "mensaje": str(error.get("message"))[:200],
                 }
+
+        # Que la app este suscrita a la cuenta de mensajes es lo que hace
+        # que Meta nos entregue lo que escriben los clientes. Con el token
+        # correcto y sin esto, el sistema funciona entero y no llega nada.
+        if waba_id:
+            try:
+                r = await cliente.get(
+                    f"https://graph.facebook.com/v25.0/{waba_id}/subscribed_apps",
+                    headers={"Authorization": "Bearer " + clave})
+                if r.status_code == 200:
+                    apps = (r.json() or {}).get("data") or []
+                    reporte["apps_suscritas"] = [
+                        (a.get("whatsapp_business_api_data") or {}).get("name")
+                        or (a.get("whatsapp_business_api_data") or {}).get("id")
+                        for a in apps
+                    ] or "ninguna: nadie recibe los mensajes"
+                else:
+                    error = (r.json() or {}).get("error", {}) if r.text else {}
+                    reporte["apps_suscritas"] = f"no se pudo: {error.get('message')}"
+            except _httpx.HTTPError as e:
+                reporte["apps_suscritas"] = f"no se pudo: {type(e).__name__}"
+
     return reporte
 
 
