@@ -33,7 +33,8 @@ _INVENTARIO = [
          construccion_m2=420, terreno_m2=350,
          descripcion="Residencia de lujo con acabados de primera, elevador y "
                      "cava. A cinco minutos de plazas y colegios.",
-         amenidades=["Elevador", "Cava", "Cuarto de servicio", "Alberca", "Jardin"]),
+         amenidades=["Elevador", "Cava", "Cuarto de servicio", "Alberca", "Jardin"],
+         etiquetas=["Luxury"]),
     dict(id="DEMO-005", titulo="Casa en Contry", tipo="Casa", operacion="Venta",
          precio=2_390_000, colonia="Contry", municipio="Monterrey", estado="Nuevo Leon",
          recamaras=3, banos=2, estacionamientos=2, construccion_m2=150, terreno_m2=200,
@@ -54,7 +55,8 @@ _INVENTARIO = [
          recamaras=4, banos=3, estacionamientos=4, construccion_m2=310, terreno_m2=900,
          descripcion="Casa de campo con terreno amplio y arboles frutales, "
                      "clima fresco a 30 minutos de Monterrey.",
-         amenidades=["Terreno amplio", "Asador", "Vista a la montana"]),
+         amenidades=["Terreno amplio", "Asador", "Vista a la montana"],
+         etiquetas=["Luxury"]),
     dict(id="DEMO-009", titulo="Terreno en Carretera Nacional", tipo="Terreno", operacion="Venta",
          precio=3_100_000, colonia="La Estanzuela", municipio="Monterrey", estado="Nuevo Leon",
          recamaras=0, banos=0, estacionamientos=0, construccion_m2=0, terreno_m2=520,
