@@ -113,6 +113,18 @@
   .boton-chico{background:var(--papel);border:1px solid var(--linea);
     border-radius:8px;padding:7px 12px;font:inherit;font-size:14px;cursor:pointer}
   .boton-chico:hover{border-color:var(--acento);color:var(--acento)}
+
+  /* Avisos dentro del panel */
+  #avisos{position:fixed;right:16px;bottom:16px;z-index:50;display:flex;
+    flex-direction:column;gap:10px;max-width:min(360px,calc(100vw - 32px))}
+  .aviso{background:var(--papel);border:1px solid var(--acento);border-left-width:4px;
+    border-radius:12px;padding:14px 16px;box-shadow:0 14px 36px -12px rgba(21,35,29,.35);
+    cursor:pointer;animation:entra .25s ease-out}
+  .aviso b{display:block;margin-bottom:3px}
+  .aviso span{font-size:14px;color:var(--suave);display:block;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  @keyframes entra{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  #sonar{display:none}
 </style>
 </head>
 <body>
@@ -133,7 +145,8 @@
     <div class="envoltura" style="padding:0;width:100%">
       <div style="display:flex;align-items:center;gap:12px">
         <div class="marca">Prospectos <span id="deQuien"></span></div>
-        <button class="boton-chico" id="salir" style="margin-left:auto">Salir</button>
+        <button class="boton-chico" id="permiso" style="margin-left:auto">Activar avisos</button>
+        <button class="boton-chico" id="salir">Salir</button>
       </div>
     </div>
   </header>
@@ -165,6 +178,8 @@
     </div>
   </div>
 </div>
+
+<div id="avisos"></div>
 
 <script>
 (function () {
@@ -215,6 +230,7 @@
       $("acceso").classList.add("oculto");
       $("panel").classList.remove("oculto");
       $("deQuien").textContent = "· " + inquilino;
+      arrancarVigia();
     }).catch(function (err) {
       var msg = err.status === 401
         ? "Clave incorrecta."
@@ -452,6 +468,100 @@
     temporizador = setTimeout(function () { cargar().catch(function () {}); }, 300);
   }
 
+  // ---------- avisos mientras el panel este abierto ----------
+  // Se revisa cada 20 segundos. No es tiempo real de verdad, pero para
+  // enterarse de que alguien esta hablando alcanza de sobra, y no obliga
+  // a instalar nada ni a dar permisos raros.
+  var vigia = null;
+  var vistas = null;        // null = primera vuelta, no avisar de lo que ya habia
+  var pendientes = 0;
+  var tituloOriginal = document.title;
+
+  function sonar() {
+    // Un tono corto generado al vuelo: sin archivos que cargar ni que falten.
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var osc = ctx.createOscillator();
+      var vol = ctx.createGain();
+      osc.connect(vol); vol.connect(ctx.destination);
+      osc.frequency.value = 880;
+      vol.gain.setValueAtTime(0.0001, ctx.currentTime);
+      vol.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.02);
+      vol.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+      osc.start(); osc.stop(ctx.currentTime + 0.36);
+    } catch (e) { /* sin audio: el aviso visual basta */ }
+  }
+
+  function avisar(titulo, detalle, canal, contacto) {
+    var caja = document.createElement("div");
+    caja.className = "aviso";
+    caja.innerHTML = "<b>" + texto(titulo) + "</b><span>" + texto(detalle) + "</span>";
+    caja.addEventListener("click", function () {
+      caja.remove();
+      mostrarVista("charlas");
+      setTimeout(function () { abrirCharla(canal, contacto); }, 150);
+    });
+    $("avisos").appendChild(caja);
+    setTimeout(function () { caja.remove(); }, 25000);
+
+    sonar();
+    pendientes += 1;
+    document.title = "(" + pendientes + ") " + tituloOriginal;
+
+    // Si el panel esta en otra pestana, el aviso del sistema si se ve.
+    try {
+      if (window.Notification && Notification.permission === "granted") {
+        new Notification(titulo, { body: detalle, tag: canal + contacto });
+      }
+    } catch (e) { /* el navegador no quiso; ya quedo el aviso en pantalla */ }
+  }
+
+  function vigilar() {
+    if (!inquilino || !token) return;
+    var p = new URLSearchParams({ inquilino: inquilino, token: token, limite: "20" });
+    pedir("/api/conversaciones?" + p.toString()).then(function (d) {
+      var ahora = {};
+      (d.conversaciones || []).forEach(function (c) {
+        ahora[c.canal + "|" + c.contacto] = c;
+      });
+
+      if (vistas !== null) {
+        Object.keys(ahora).forEach(function (llave) {
+          var c = ahora[llave];
+          var antes = vistas[llave];
+          // Nueva, o la misma con mensajes nuevos.
+          if (!antes) {
+            avisar(nombreDe(c) + " empezo a hablar con Athena",
+                   c.canal === "whatsapp" ? "Por WhatsApp" : "En el sitio",
+                   c.canal, c.contacto);
+          } else if (c.turnos > antes.turnos) {
+            avisar(nombreDe(c) + " sigue escribiendo",
+                   (c.turnos - antes.turnos) + " mensajes nuevos",
+                   c.canal, c.contacto);
+          }
+        });
+      }
+      vistas = ahora;
+    }).catch(function () { /* se reintenta en la siguiente vuelta */ });
+  }
+
+  function nombreDe(c) {
+    if (c.nombre) return c.nombre;
+    return c.canal === "web" ? "Alguien en el sitio" : "+" + c.contacto;
+  }
+
+  function arrancarVigia() {
+    clearInterval(vigia);
+    vistas = null;
+    vigilar();
+    vigia = setInterval(vigilar, 20000);
+  }
+
+  // Al volver a la pestana se limpia el contador del titulo.
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) { pendientes = 0; document.title = tituloOriginal; }
+  });
+
   // Sin esto se queda uno atorado: la sesion guardada vuelve a entrar sola
   // al mismo inquilino y no hay forma de cambiarse ni de cerrar.
   function salir() {
@@ -460,11 +570,35 @@
     token = "";
     $("tok").value = "";
     clearTimeout(temporizador);
+    clearInterval(vigia);
+    vistas = null;
+    pendientes = 0;
+    document.title = tituloOriginal;
     $("panel").classList.add("oculto");
     $("acceso").classList.remove("oculto");
     mostrarVista("prospectos");
     $("inq").focus();
   }
+
+  // El permiso se pide con un clic y no al entrar: los navegadores
+  // bloquean los permisos que nadie pidio, y con razon.
+  function pintarBotonPermiso() {
+    var b = $("permiso");
+    if (!window.Notification) { b.style.display = "none"; return; }
+    if (Notification.permission === "granted") {
+      b.textContent = "Avisos activos";
+      b.disabled = true;
+      b.style.opacity = ".6";
+    } else if (Notification.permission === "denied") {
+      b.textContent = "Avisos bloqueados";
+      b.disabled = true;
+      b.style.opacity = ".6";
+    }
+  }
+  $("permiso").addEventListener("click", function () {
+    Notification.requestPermission().then(pintarBotonPermiso);
+  });
+  pintarBotonPermiso();
 
   $("salir").addEventListener("click", salir);
   $("pestanaProspectos").addEventListener("click", function () { mostrarVista("prospectos"); });
