@@ -80,10 +80,15 @@
     '.yo{background:var(--acento);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}' +
     '.error{background:#fdecea;color:#8a1c12;align-self:flex-start;font-size:13px}' +
     '.props{display:flex;flex-direction:column;gap:8px;align-self:flex-start;width:100%}' +
-    '.prop{background:#fff;border:1px solid #e3e5e8;border-radius:10px;padding:10px 12px;font-size:13px}' +
+    '.prop{background:#fff;border:1px solid #e3e5e8;border-radius:10px;padding:10px 12px;font-size:13px;' +
+      'display:block;color:inherit;text-decoration:none;transition:border-color .15s,transform .15s}' +
+    // Toda la tarjeta es el enlace: nadie quiere cazar un "ver ficha" de
+    // ocho pixeles en un telefono.
+    'a.prop:hover{border-color:var(--acento);transform:translateY(-1px)}' +
+    'a.prop:focus-visible{outline:2px solid var(--acento);outline-offset:2px}' +
     '.prop b{display:block;color:#1a1a1a;margin-bottom:3px;font-size:13.5px}' +
     '.prop span{color:#5b6068;display:block;line-height:1.5}' +
-    '.prop a{color:var(--acento);text-decoration:none;font-weight:600;display:inline-block;margin-top:5px}' +
+    '.prop .ver{color:var(--acento);font-weight:600;display:inline-block;margin-top:5px}' +
     '.pie{padding:10px;border-top:1px solid #e6e8ea;display:flex;gap:8px;background:#fff}' +
     '.pie input{flex:1;border:1px solid #d6d9dd;border-radius:20px;padding:10px 14px;font-size:14px;outline:none}' +
     '.pie input:focus{border-color:var(--acento)}' +
@@ -145,8 +150,14 @@
     var caja = document.createElement("div");
     caja.className = "props";
     lista.slice(0, 4).forEach(function (p) {
-      var d = document.createElement("div");
+      // Si hay liga, la tarjeta ES la liga; si no, es una tarjeta normal.
+      var d = document.createElement(p.url ? "a" : "div");
       d.className = "prop";
+      if (p.url) {
+        d.href = p.url;
+        d.target = "_blank";
+        d.rel = "noopener noreferrer";
+      }
       var b = document.createElement("b");
       b.textContent = p.titulo || p.id;
       d.appendChild(b);
@@ -163,12 +174,10 @@
       d.appendChild(s);
 
       if (p.url) {
-        var a = document.createElement("a");
-        a.href = p.url;
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        a.textContent = "Ver ficha →";
-        d.appendChild(a);
+        var pie = document.createElement("span");
+        pie.className = "ver";
+        pie.textContent = "Ver ficha →";
+        d.appendChild(pie);
       }
       caja.appendChild(d);
     });

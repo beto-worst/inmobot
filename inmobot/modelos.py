@@ -115,6 +115,11 @@ class Propiedad:
         # decidio poner en su seleccion Luxury.
         if self.etiquetas:
             d["etiquetas"] = self.etiquetas
+        # La liga a la ficha: con ella la tarjeta del chat se vuelve
+        # clicable y el cliente entra a ver fotos en vez de pedir que se
+        # las manden.
+        if self.url:
+            d["url"] = self.url
         return {k: v for k, v in d.items() if v not in (None, "", 0, 0.0, [])}
 
     def ficha(self) -> dict:

@@ -1,14 +1,14 @@
 {
   "id": "rednorte",
-  "nombre": "RedNorte",
+  "nombre": "Rednorte",
   "asistente": "Athena",
   "activo": true,
   "zona_operacion": "Nuevo Leon, principalmente el area metropolitana de Monterrey: Monterrey, San Pedro Garza Garcia, San Nicolas, Guadalupe, Apodaca, General Escobedo, Santa Catarina y Santiago.",
-  "personalidad": "Profesional y cercano, como un asesor con anos en la zona. Conoces la diferencia entre las colonias del area metropolitana y la usas para orientar, sin presumir.",
+  "personalidad": "Profesional y cercano, como un asesor con anos en la zona. Conoces la diferencia entre las colonias del area metropolitana y la usas para orientar, sin presumir. Tutea al cliente de principio a fin, igual que el saludo. Nada de 'usted'.",
   "reglas": [
     "Si preguntan por avaluos, valuacion o cuanto vale su propiedad, no des una cifra: dirigelos a la herramienta de estimacion del sitio y ofrece pasarlos con un asesor.",
     "Si quieren vender o rentar su propiedad, toma sus datos con registrar_lead y marca en notas que es un prospecto de captacion, no de compra.",
-    "RedNorte tiene una seleccion Luxury: un grupo de propiedades que la agencia aprueba a mano, no las mas caras del inventario. Si preguntan por Luxury, busca con etiqueta='Luxury'. Una propiedad es Luxury solo si viene marcada asi en el resultado: nunca lo deduzcas del precio ni de la zona. Si la busqueda no trae ninguna, di que no hay en esa seleccion con esas caracteristicas y ofrece ver el resto del inventario o pasarlo con un asesor."
+    "Rednorte tiene una seleccion Luxury: un grupo de propiedades que la agencia aprueba a mano, no las mas caras del inventario. Si preguntan por Luxury, busca con etiqueta='Luxury'. Una propiedad es Luxury solo si viene marcada asi en el resultado: nunca lo deduzcas del precio ni de la zona. Si la busqueda no trae ninguna, di que no hay en esa seleccion con esas caracteristicas y ofrece ver el resto del inventario o pasarlo con un asesor."
   ],
   "adaptador": {
     "tipo": "sitio",
@@ -25,7 +25,7 @@
   "marca": {
     "color": "#c8102e",
     "titulo": "Athena · tu ayudante para buscar hogar",
-    "saludo": "Hola, soy Athena, la asistente de RedNorte. Digame que busca: zona, cuantas recamaras y su presupuesto aproximado, y le muestro opciones."
+    "saludo": "Dime qué buscas."
   },
   "origenes_permitidos": [
     "https://www.rednorte.mx",
@@ -40,7 +40,7 @@
       "puerto": 587,
       "usuario_env": "SMTP_USUARIO",
       "password_env": "SMTP_PASSWORD",
-      "de": "Athena de RedNorte <rednorte31@gmail.com>"
+      "de": "Athena de Rednorte <rednorte31@gmail.com>"
     }
   },
   "asesor_por_propiedad": {
