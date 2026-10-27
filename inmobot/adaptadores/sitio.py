@@ -42,7 +42,7 @@ import os
 import httpx
 
 from ..config import leer_env
-from ..modelos import Propiedad
+from ..modelos import Propiedad, reparar_texto
 from .base import AdaptadorInventario
 from .nocnok import ErrorInventario
 
@@ -132,23 +132,23 @@ class AdaptadorSitio(AdaptadorInventario):
 
         return Propiedad(
             id=codigo,
-            titulo=p.get("title") or "Propiedad",
+            titulo=reparar_texto(p.get("title") or "") or "Propiedad",
             tipo=p.get("type") or "Casa",
             categoria=p.get("category") or "Residencial",
             operacion=p.get("op") or "Venta",
             precio=_numero(p.get("rawPrice")),
             precio_texto=p.get("price") or "Precio a consultar",
             moneda=p.get("currency") or "MXN",
-            colonia=(p.get("colonia") or "").strip(),
-            municipio=municipio,
-            estado=estado,
+            colonia=reparar_texto((p.get("colonia") or "").strip()),
+            municipio=reparar_texto(municipio),
+            estado=reparar_texto(estado),
             recamaras=_entero(p.get("rooms")),
             banos=_numero(p.get("baths")),
             estacionamientos=_entero(p.get("parking")),
             construccion_m2=_numero(p.get("constructionSize")),
             terreno_m2=_numero(p.get("lotSize")),
-            descripcion=p.get("description") or "",
-            amenidades=[str(a) for a in (p.get("features") or []) if a],
+            descripcion=reparar_texto(p.get("description") or ""),
+            amenidades=[reparar_texto(str(a)) for a in (p.get("features") or []) if a],
             etiquetas=["Luxury"] if p.get("luxury") else [],
             imagenes=[imagen] if imagen else [],
             url=url,

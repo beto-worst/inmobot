@@ -13,7 +13,7 @@ import asyncio
 import sys
 
 from inmobot.adaptadores.base import AdaptadorInventario
-from inmobot.modelos import Filtros, Propiedad
+from inmobot.modelos import Filtros, Propiedad, reparar_texto
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -89,6 +89,19 @@ async def main() -> None:
     r = await inv.buscar(Filtros(etiqueta="Preventa", operacion="Venta"))
     revisar("no inventa una seleccion que nadie aprobo",
             "NO son Preventa" in (r.get("nota") or ""), (r.get("nota") or "")[:90])
+
+    print("\nTEXTO QUE VIENE ROTO DEL CRM")
+    roto = "Terreno en Venta en Agua FrÃ\xada, Apodaca, Nuevo LeÃ³n"
+    revisar("lo repara",
+            reparar_texto(roto) == "Terreno en Venta en Agua Fría, Apodaca, Nuevo León",
+            reparar_texto(roto))
+    revisar("no toca el texto que ya esta bien",
+            reparar_texto("Jardín con alberca") == "Jardín con alberca")
+    revisar("no toca el texto sin acentos",
+            reparar_texto("Casa en Cumbres Elite") == "Casa en Cumbres Elite")
+    # Si el arreglo no sale limpio, mas vale dejarlo feo que empeorarlo.
+    raro = "PreciosÃ³ ðŸ "
+    revisar("si no puede repararlo, lo deja igual", reparar_texto(raro) == raro)
 
     print("\n" + ("TODO BIEN" if not fallos else f"{fallos} PRUEBAS FALLARON"))
     sys.exit(1 if fallos else 0)

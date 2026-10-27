@@ -11,6 +11,26 @@ import unicodedata
 from dataclasses import dataclass, field
 
 
+def reparar_texto(texto: str) -> str:
+    """Repara el texto que venia en UTF-8 y alguien leyo como latin-1.
+
+    "Agua FrÃ­a" vuelve a ser "Agua Fria" con su acento, y "Nuevo LeÃ³n"
+    vuelve a ser "Nuevo Leon" con el suyo. Pasa seguido con lo que captura
+    un asesor en un CRM viejo, y el sitio del cliente suele mostrarlo tal
+    cual. Una ficha fea se perdona; que el asistente se lo lea al cliente
+    en una conversacion, no.
+
+    Solo se queda con el arreglo si de verdad funciona: si el texto no
+    tiene las marcas tipicas o el ida y vuelta falla, se devuelve igual.
+    """
+    if not texto or ("Ã" not in texto and "Â" not in texto):
+        return texto
+    try:
+        return texto.encode("latin-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return texto
+
+
 def normalizar(texto: str) -> str:
     """Minusculas y sin acentos, para comparar 'Cumbres' con 'cumbres'.
 
