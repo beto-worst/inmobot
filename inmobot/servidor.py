@@ -550,6 +550,47 @@ async def ver_conversacion(canal: str, contacto: str, inquilino: str,
     return charla
 
 
+@app.get("/api/inventario/diagnostico")
+async def diagnostico_inventario(inquilino: str, token: str = ""):
+    """Que pasa cuando el asistente intenta leer el inventario de verdad.
+
+    Un "falla al leer inventario" visto desde el chat puede ser el token
+    equivocado, la fuente caida, o que el sitio este sirviendo su catalogo
+    de respaldo. Esto lo hace de verdad y devuelve lo que paso.
+    """
+    _autorizar_panel(inquilino, token)
+    inq = registro.obtener(inquilino)
+    adaptador = registro.adaptador(inquilino)
+
+    config = (inq.adaptador or {}).get("config", {})
+    reporte = {
+        "adaptador": (inq.adaptador or {}).get("tipo"),
+        "url": config.get("url") or config.get("proxy_url") or "",
+        "variable_del_token": config.get("token_env", ""),
+    }
+    variable = config.get("token_env")
+    if variable:
+        valor = leer_env(variable)
+        reporte["token_configurado"] = bool(valor)
+        reporte["largo_del_token"] = len(valor)
+
+    try:
+        propiedades = await adaptador.cargar(forzar=True)
+    except Exception as e:  # noqa: BLE001
+        reporte["resultado"] = "fallo"
+        reporte["detalle"] = f"{type(e).__name__}: {e}"[:300]
+        return reporte
+
+    reporte["resultado"] = "ok"
+    reporte["propiedades"] = len(propiedades)
+    reporte["con_etiqueta"] = len([p for p in propiedades if p.etiquetas])
+    if propiedades:
+        p0 = propiedades[0]
+        reporte["ejemplo"] = {"id": p0.id, "titulo": p0.titulo,
+                              "precio": p0.precio_texto, "url": p0.url}
+    return reporte
+
+
 @app.get("/api/whatsapp/diagnostico")
 async def diagnostico_whatsapp(inquilino: str, token: str = "",
                                telefono_id: str = "", waba_id: str = ""):
