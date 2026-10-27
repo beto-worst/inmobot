@@ -54,13 +54,31 @@
   // ?inquilino=rednorte prueba el mismo widget contra el inventario real.
   // Sirve para enseñarle a un prospecto su propio catálogo en la junta.
   (function () {
-    var inq = new URLSearchParams(location.search).get("inquilino") || "demo";
+    var params = new URLSearchParams(location.search);
+    var inq = params.get("inquilino") || "demo";
+    // ?launcher=false prueba el modo sin burbuja: el sitio pone sus propios
+    // botones y abre el chat con window.Inmobot.open().
+    var conBurbuja = params.get("launcher") !== "false";
+
     var s = document.createElement("script");
     s.src = "/widget/inmobot.js";
     s.async = false;
     s.setAttribute("data-inquilino", inq);
     s.setAttribute("data-api", "");
+    if (!conBurbuja) s.setAttribute("data-launcher", "false");
     document.body.appendChild(s);
+
+    if (!conBurbuja) {
+      document.addEventListener("inmobot:ready", function () {
+        var b = document.createElement("button");
+        b.textContent = "Habla con Athena";
+        b.style.cssText = "display:block;margin:24px auto;padding:14px 28px;" +
+          "font:600 16px system-ui;color:#fff;background:#1F5D4C;border:0;" +
+          "border-radius:999px;cursor:pointer";
+        b.onclick = function () { window.Inmobot.open(); };
+        document.querySelector(".envoltura, body").appendChild(b);
+      });
+    }
     var aviso = document.querySelector(".aviso");
     if (inq !== "demo" && aviso) {
       aviso.innerHTML = "<strong>Inventario real.</strong> Este banco de pruebas " +

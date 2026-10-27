@@ -5,6 +5,24 @@
  *           data-inquilino="rednorte"
  *           data-api="https://TU-SERVIDOR"></script>
  *
+ * Atributos opcionales:
+ *   data-launcher="false"   no dibuja la burbuja flotante. El sitio abre el
+ *                           chat desde sus propios botones.
+ *
+ * API publica, para los sitios que ponen sus propios disparadores:
+ *   window.Inmobot.open()     abre el panel
+ *   window.Inmobot.close()    lo cierra
+ *   window.Inmobot.toggle()   alterna
+ *   window.Inmobot.isOpen()   true si esta abierto
+ *   window.Inmobot.ready      promesa que resuelve cuando el widget existe
+ *
+ * Tambien emite eventos en document, por si se prefiere escucharlos:
+ *   "inmobot:ready", "inmobot:open", "inmobot:close"
+ *
+ * El contrato es ese y nada mas: las clases y la estructura de adentro son
+ * internas y pueden cambiar. Un sitio que dependa de ellas se rompe sin
+ * aviso en la siguiente version.
+ *
  * Todo vive dentro de un Shadow DOM: el CSS del sitio anfitrion no puede
  * romper el widget, y el widget no puede romper el sitio. En un producto que
  * se instala en paginas ajenas eso no es un lujo.
@@ -25,6 +43,9 @@
   var INQUILINO = script.getAttribute("data-inquilino") || "demo";
   var API = (script.getAttribute("data-api") || "").replace(/\/$/, "") ||
             new URL(script.src).origin;
+  // Hay sitios que prefieren abrir el chat desde su propio boton -un CTA en
+  // el hero, una tarjeta del catalogo- en vez de una burbuja flotante mas.
+  var CON_BURBUJA = script.getAttribute("data-launcher") !== "false";
 
   var sesion = null;
   var ocupado = false;
@@ -49,7 +70,10 @@
     '.panel.abierto{display:flex}' +
     '.cabecera{background:var(--acento);color:#fff;padding:14px 16px;font-weight:600;font-size:15px;' +
       'display:flex;justify-content:space-between;align-items:center}' +
-    '.cerrar{background:none;border:0;color:#fff;font-size:22px;cursor:pointer;line-height:1}' +
+    // Un nombre largo -"Athena, tu ayudante para buscar hogar"- cabe en dos
+    // renglones en vez de empujar la cruz de cerrar fuera de la cabecera.
+    '.titulo{line-height:1.25;padding-right:10px}' +
+    '.cerrar{background:none;border:0;color:#fff;font-size:22px;cursor:pointer;line-height:1;flex:none}' +
     '.hilo{flex:1;overflow-y:auto;padding:14px;background:#f6f7f9;display:flex;flex-direction:column;gap:10px}' +
     '.msg{max-width:85%;padding:10px 13px;border-radius:14px;font-size:14px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}' +
     '.bot{background:#fff;color:#1a1a1a;align-self:flex-start;border-bottom-left-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.08)}' +
@@ -84,6 +108,7 @@
     '</div>';
 
   var burbuja = raiz.querySelector(".burbuja");
+  if (!CON_BURBUJA) burbuja.remove();
   var panel = raiz.querySelector(".panel");
   var hilo = raiz.querySelector(".hilo");
   var campo = raiz.querySelector(".pie input");
@@ -259,6 +284,8 @@
   function alternar() {
     abierto = !abierto;
     panel.classList.toggle("abierto", abierto);
+    document.dispatchEvent(new CustomEvent(
+      abierto ? "inmobot:open" : "inmobot:close"));
     if (abierto) {
       if (!hilo.children.length) {
         burbujaTexto(host.dataset.saludo ||
@@ -268,10 +295,28 @@
     }
   }
 
-  burbuja.addEventListener("click", alternar);
+  function abrir() { if (!abierto) alternar(); }
+  function cerrar() { if (abierto) alternar(); }
+
+  if (CON_BURBUJA) burbuja.addEventListener("click", alternar);
   raiz.querySelector(".cerrar").addEventListener("click", alternar);
   boton.addEventListener("click", enviar);
   campo.addEventListener("keydown", function (e) {
     if (e.key === "Enter") { e.preventDefault(); enviar(); }
   });
+
+  // Superficie publica. Se expone al final, cuando todo lo de adentro ya
+  // existe: un boton del sitio que llame a open() antes de tiempo no puede
+  // encontrarse con medio widget.
+  window.Inmobot = {
+    open: abrir,
+    close: cerrar,
+    toggle: alternar,
+    isOpen: function () { return abierto; },
+    inquilino: INQUILINO,
+    // Para el sitio que carga el script con defer o lazy y necesita saber
+    // cuando ya puede llamar. Si llega tarde, igual resuelve.
+    ready: Promise.resolve(),
+  };
+  document.dispatchEvent(new CustomEvent("inmobot:ready"));
 })();

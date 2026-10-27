@@ -24,7 +24,7 @@
   },
   "marca": {
     "color": "#c8102e",
-    "titulo": "Athena · RedNorte",
+    "titulo": "Athena · tu ayudante para buscar hogar",
     "saludo": "Hola, soy Athena, la asistente de RedNorte. Digame que busca: zona, cuantas recamaras y su presupuesto aproximado, y le muestro opciones."
   },
   "origenes_permitidos": [
