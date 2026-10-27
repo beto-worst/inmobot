@@ -165,7 +165,7 @@
       var detalle = [p.precio, p.ubicacion].filter(Boolean).join(" · ");
       var medidas = [];
       if (p.recamaras) medidas.push(p.recamaras + " rec");
-      if (p.banos) medidas.push(p.banos + " baños");
+      if (p.banos) medidas.push(p.banos + (p.banos === 1 ? " baño" : " baños"));
       if (p.construccion_m2) medidas.push(p.construccion_m2 + " m²");
       if (medidas.length) detalle += "\n" + medidas.join(" · ");
 

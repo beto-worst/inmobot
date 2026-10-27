@@ -13,6 +13,10 @@ from dataclasses import replace
 from ..modelos import Filtros, Propiedad, normalizar
 
 
+# Debajo de esto, un resultado se lee como "no hay inventario".
+POCAS = 3
+
+
 class AdaptadorInventario(ABC):
     """Fuente de propiedades de un inquilino."""
 
@@ -60,6 +64,7 @@ class AdaptadorInventario(ABC):
                     "busqueda": f.descripcion_humana(),
                     "nota": "El inventario no esta disponible en este momento."}
 
+        f, nota_piso = self._sin_piso_si_esconde(f, inventario)
         for filtros, aviso in self._escalera(f):
             hits = [p for p in inventario if self._coincide(p, filtros)]
             if hits:
@@ -68,12 +73,34 @@ class AdaptadorInventario(ABC):
                     "resultados": [p.resumen() for p in hits[: f.limite]],
                     "total_coincidencias": len(hits),
                     "busqueda": f.descripcion_humana(),
-                    "nota": aviso,
+                    "nota": " ".join(x for x in (nota_piso, aviso) if x) or None,
                 }
 
         return {"resultados": [], "total_coincidencias": 0,
                 "busqueda": f.descripcion_humana(),
                 "nota": "No hay nada en el inventario ni aflojando los criterios."}
+
+    def _sin_piso_si_esconde(self, f: Filtros, inventario):
+        """Quita el precio minimo cuando es lo unico que esconde opciones.
+
+        Es el unico filtro que descarta propiedades MAS baratas, y ningun
+        cliente con presupuesto de 35 mil se ofende porque le ensenes una de
+        16 mil. Paso de verdad: un minimo que nadie pidio dejo una sola
+        opcion de nueve, y el cliente oyo "solo hay una".
+        """
+        if not f.precio_min:
+            return f, None
+        con_piso = sum(1 for p in inventario if self._coincide(p, f))
+        if con_piso >= POCAS:
+            return f, None
+        sin_piso = replace(f, precio_min=None)
+        cuantas = sum(1 for p in inventario if self._coincide(p, sin_piso))
+        if cuantas <= con_piso:
+            return f, None
+        return sin_piso, (
+            f"Con un minimo de ${f.precio_min:,.0f} solo habia {con_piso}. Se "
+            f"ignoro el minimo, porque un presupuesto es un techo y no un "
+            f"rango: dile que tambien hay opciones mas baratas.")
 
     def _escalera(self, f: Filtros):
         """Criterios de mas estricto a mas flojo, con el aviso de que se cedio."""
@@ -100,8 +127,8 @@ class AdaptadorInventario(ABC):
                    "operacion; aclaralo de entrada.")
 
         if f.precio_max or f.recamaras_min:
-            yield (replace(f, precio_max=None, recamaras_min=None,
-                           colonia=None, municipio=None),
+            yield (replace(f, precio_max=None, precio_min=None,
+                           recamaras_min=None, colonia=None, municipio=None),
                    "Ninguna opcion cumple lo pedido. Esto es lo mas cercano "
                    "que hay; se honesto con el cliente sobre la diferencia.")
 
@@ -109,8 +136,8 @@ class AdaptadorInventario(ABC):
         # pide Luxury no quiere "parecidas", y presentarselas sin avisar
         # seria pasarle gato por liebre.
         if f.etiqueta:
-            yield (replace(f, etiqueta=None, precio_max=None, recamaras_min=None,
-                           colonia=None, municipio=None),
+            yield (replace(f, etiqueta=None, precio_max=None, precio_min=None,
+                           recamaras_min=None, colonia=None, municipio=None),
                    f"No hay nada en la seleccion {f.etiqueta} con eso. Estas NO "
                    f"son {f.etiqueta}; dilo explicitamente antes de mostrarlas.")
 

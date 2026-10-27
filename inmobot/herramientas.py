@@ -43,7 +43,15 @@ HERRAMIENTAS = [
                 "recamaras_min": {"type": "integer", "description": "Minimo de recamaras."},
                 "banos_min": {"type": "number", "description": "Minimo de banos."},
                 "estacionamientos_min": {"type": "integer", "description": "Minimo de cajones."},
-                "precio_min": {"type": "number", "description": "Precio minimo en pesos."},
+                "precio_min": {
+                    "type": "number",
+                    "description": (
+                        "Precio minimo en pesos. SOLO si la persona dio un rango "
+                        "explicito ('entre 20 y 35 mil'). Un presupuesto suelto "
+                        "('35 mil') es un techo, no un rango: ahi este campo se "
+                        "deja vacio, o le esconderias las opciones mas baratas."
+                    ),
+                },
                 "precio_max": {
                     "type": "number",
                     "description": "Presupuesto maximo en pesos. Para renta es el pago mensual.",
