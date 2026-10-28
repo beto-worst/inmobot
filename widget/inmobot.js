@@ -74,7 +74,7 @@
     // renglones en vez de empujar la cruz de cerrar fuera de la cabecera.
     '.titulo{line-height:1.25;padding-right:10px}' +
     '.cerrar{background:none;border:0;color:#fff;font-size:22px;cursor:pointer;line-height:1;flex:none}' +
-    '.hilo{flex:1;overflow-y:auto;padding:14px;background:#f6f7f9;display:flex;flex-direction:column;gap:10px}' +
+    '.hilo{flex:1;overflow-y:auto;padding:14px;background:var(--fondo);display:flex;flex-direction:column;gap:10px}' +
     '.msg{max-width:85%;padding:10px 13px;border-radius:14px;font-size:14px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}' +
     '.bot{background:#fff;color:#1a1a1a;align-self:flex-start;border-bottom-left-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.08)}' +
     '.yo{background:var(--acento);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}' +
@@ -121,6 +121,7 @@
   var titulo = raiz.querySelector(".titulo");
 
   host.style.setProperty("--acento", "#1F5D4C");
+  host.style.setProperty("--fondo", "#f6f7f9");
 
   fetch(API + "/api/config?inquilino=" + encodeURIComponent(INQUILINO))
     .then(function (r) { return r.ok ? r.json() : null; })
@@ -128,6 +129,7 @@
       if (!cfg) return;
       var marca = cfg.marca || {};
       if (marca.color) host.style.setProperty("--acento", marca.color);
+      if (marca.fondo) host.style.setProperty("--fondo", marca.fondo);
       // El nombre de la IA manda sobre el de la inmobiliaria: para el cliente
       // final esta hablando con Athena (o como la haya rebautizado), no con
       // "un asistente" generico.

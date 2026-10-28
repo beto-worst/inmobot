@@ -23,9 +23,10 @@
     "token_panel_env": "PANEL_REDNORTE"
   },
   "marca": {
-    "color": "#c8102e",
+    "color": "#A04E22",
     "titulo": "Athena · tu ayudante para buscar hogar",
-    "saludo": "Dime qué buscas."
+    "saludo": "Dime qué buscas.",
+    "fondo": "#FAF8F5"
   },
   "origenes_permitidos": [
     "https://www.rednorte.mx",
